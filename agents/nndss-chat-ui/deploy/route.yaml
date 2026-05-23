@@ -1,0 +1,19 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: nndss-chat-ui
+  labels:
+    app.kubernetes.io/name: nndss-chat-ui
+  annotations:
+    haproxy.router.openshift.io/timeout: "600s"
+spec:
+  to:
+    kind: Service
+    name: nndss-chat-ui
+    weight: 100
+  port:
+    targetPort: 8501
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  wildcardPolicy: None

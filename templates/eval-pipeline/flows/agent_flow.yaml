@@ -1,0 +1,29 @@
+metadata:
+  name: Data Agent Evaluation Flow
+  description: >
+    Runs the data agent against evaluation questions using the system prompt
+    with structured reasoning protocol. Uses MCPAgentBlock to connect to
+    the domain MCP server and generate tool traces. Model and MCP URL are
+    injected via runtime_params at pipeline invocation.
+  version: 1.0.0
+  license: Apache-2.0
+  tags:
+    - evaluation
+    - mcp
+    - agent
+  dataset_requirements:
+    required_columns:
+      - eval_question
+    description: >
+      Input dataset with evaluation questions. Each row must contain
+      eval_question (the question for the agent to answer using MCP tools).
+blocks:
+  - block_type: MCPAgentBlock
+    block_config:
+      block_name: data_agent
+      model: "openai/your-model-id"
+      mcp_server_url: "YOUR_MCP_SERVER_URL"
+      input_cols: eval_question
+      output_cols: agent_trace
+      max_iterations: 10
+      system_prompt_path: prompts/system.md

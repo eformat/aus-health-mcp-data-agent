@@ -1,0 +1,127 @@
+# Gold standard: straightforward data retrieval with methodology awareness.
+#
+# Tests whether the agent can retrieve a specific notification count,
+# correctly map terminology, and communicate that notifications are
+# not the same as infections.
+
+id: q01
+question: "How many influenza cases were notified in NSW in 2023?"
+source: manual-seed
+
+evaluation_criteria:
+  - "Data retrieval accuracy for a specific disease, state, and year"
+  - "Terminology fluency: mapping 'cases' to 'notifications'"
+  - "Methodology awareness: passive surveillance caveats"
+
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: >
+      Identifies NNDSS influenza (laboratory confirmed) as the correct
+      dataset. Notes that ASPREN (GP sentinel surveillance) and FluTracking
+      (crowdsourced ILI) are alternatives but measure different things --
+      ASPREN captures consultation rates including untested cases, FluTracking
+      captures community-level influenza-like illness. For a "notified" query,
+      NNDSS is the definitive source because it records laboratory-confirmed
+      notifications.
+  methodology_awareness:
+    applies: true
+    expected: >
+      Notes that NNDSS is passive surveillance relying on lab-confirmed
+      notifications. Mentions that the 2023 count reflects post-COVID
+      resurgence patterns and should not be directly compared to pre-2020
+      counts without accounting for COVID-19 disruption. PCR testing
+      dominates diagnostic methods since ~2010.
+  scope_adherence:
+    applies: true
+    expected: >
+      Clarifies that notifications are not infections. The count represents
+      people who sought healthcare, were tested, and had a positive result
+      reported. The true number of influenza infections in NSW in 2023 was
+      substantially higher.
+  causal_inference_boundaries:
+    applies: false
+    expected: ""
+  geographic_resolution_knowledge:
+    applies: true
+    expected: >
+      Confirms that state-level data (NSW) is available in NNDSS public
+      datasets. Notes that finer geographic resolution (LGA, postcode) is
+      not available in the public data.
+  terminology_fluency:
+    applies: true
+    expected: >
+      Maps the user's "influenza cases" to "Influenza (laboratory confirmed)"
+      notifications in the NNDSS. Clarifies that "cases" in NNDSS terminology
+      means notifications, not clinical diagnoses or total infections.
+
+gold_standard_reasoning:
+  - step: 1
+    consideration: "query_interpretation"
+    thought: >
+      The user wants the influenza notification count for NSW in 2023.
+      "Cases notified" maps directly to NNDSS notifications. This is a
+      straightforward data retrieval question for a single disease, state,
+      and year.
+  - step: 2
+    consideration: "dataset_selection"
+    thought: >
+      NNDSS Influenza (laboratory confirmed) is the correct and only
+      appropriate dataset for "notified" cases. Alternatives like ASPREN
+      or FluTracking measure different things (GP consultations and
+      community ILI respectively) and would not answer a question about
+      formal notifications.
+  - step: 3
+    consideration: "methodology_context"
+    thought: >
+      2023 data is post-COVID. Influenza notifications resurged after
+      near-zero counts in 2020-2021 due to the removal of public health
+      measures. The 2023 count is from the PCR era so it is comparable
+      to 2011-2019 counts methodologically, but the COVID disruption
+      makes trend interpretation complex.
+  - step: 4
+    consideration: "response_construction"
+    thought: >
+      Present the notification count for NSW 2023, clarify this represents
+      laboratory-confirmed notifications (not total infections), note the
+      surveillance methodology, and include the data confidence card.
+
+gold_standard_answer: |
+  In 2023, NSW recorded approximately 16,000 laboratory-confirmed influenza
+  notifications reported to the NNDSS.
+
+  This figure represents notifications -- people who sought healthcare, were
+  tested (predominantly by PCR), and had a positive result reported to health
+  authorities. The true number of influenza infections in NSW in 2023 was
+  substantially higher, as many infections are mild and never tested.
+
+  Context: 2023 was part of the post-COVID resurgence in influenza activity.
+  Notifications in 2020-2021 were near zero due to public health measures
+  (border closures, social distancing, mask mandates). The 2022-2023
+  resurgence reflects the removal of these measures rather than necessarily
+  increased viral circulation compared to pre-COVID years.
+
+  Alternative data sources for influenza activity in NSW include ASPREN
+  (GP sentinel surveillance capturing consultation rates) and FluTracking
+  (community-level influenza-like illness estimates), which measure
+  different aspects of influenza activity.
+
+bad_answer_examples:
+  - description: "States '16,000 people got the flu in NSW in 2023'"
+    why_bad: >
+      Conflates notifications with infections. Notifications capture only
+      the subset of infections where someone sought healthcare, was tested,
+      and had a positive result reported. The true number of infections was
+      much higher.
+  - description: "Returns the number without mentioning the surveillance methodology"
+    why_bad: >
+      A raw number without methodology context gives the user no basis for
+      interpreting it. They need to know this is passive surveillance data
+      with inherent under-reporting.
+  - description: "Compares the 2023 count directly to 2019 without noting the COVID disruption"
+    why_bad: >
+      The 2020-2021 near-zero period makes simple year-on-year comparisons
+      misleading. The agent should note this discontinuity.
+
+question_type: "data_retrieval"
+can_server_answer: "yes"

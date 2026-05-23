@@ -1,0 +1,47 @@
+# Seed question template.
+#
+# Each seed question targets specific reasoning capabilities. A good seed
+# primarily tests 2-3 dimensions while touching others tangentially.
+#
+# For scaling, each seed can generate variants by changing the geographic
+# focus, time period, specific indicator, or comparison axis.
+
+id: "q00"  # Unique identifier (used to match gold standards)
+
+question: "Your evaluation question here"
+
+# What type of reasoning this question primarily tests.
+# One of: data_retrieval, cross_dataset, scope_boundary,
+#         geographic_resolution, methodology_comparison
+question_type: "data_retrieval"
+
+# Can the MCP server answer this question?
+# One of: yes, partially, no
+# "no" is valid -- testing scope refusals is important.
+can_server_answer: "yes"
+
+# Free-text criteria the judge should consider
+evaluation_criteria:
+  - "Criterion 1"
+  - "Criterion 2"
+
+# Which dimensions apply (see gold-standards/example-seed.yaml for full format)
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: "Brief description of expected reasoning"
+  methodology_awareness:
+    applies: true
+    expected: "Brief description of expected reasoning"
+  scope_adherence:
+    applies: false
+    expected: ""
+  causal_inference_boundaries:
+    applies: false
+    expected: ""
+  geographic_resolution_knowledge:
+    applies: false
+    expected: ""
+  terminology_fluency:
+    applies: false
+    expected: ""

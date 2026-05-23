@@ -1,0 +1,167 @@
+# Gold standard: cross-dataset comparison over a multi-year period.
+#
+# Tests whether the agent can retrieve and compare two different disease
+# datasets, recognise that direct comparison of notification counts
+# across diseases is problematic, and provide appropriate methodology
+# context for each.
+
+id: q03
+question: "Compare influenza and pneumococcal disease notification trends over the past 5 years"
+source: manual-seed
+
+evaluation_criteria:
+  - "Cross-dataset reasoning: comparing two different disease datasets"
+  - "Methodology awareness: different testing, case definitions, and under-reporting"
+  - "Temporal context: COVID-19 disruption affects both diseases differently"
+  - "Scope adherence: trends in notifications, not disease incidence"
+
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: >
+      Retrieves trend data for both influenza and pneumococcal disease
+      from the NNDSS. Critically, notes that comparing notification counts
+      across these two diseases is problematic because they have different
+      under-reporting ratios, different testing volumes, different case
+      definitions, and fundamentally different epidemiological profiles.
+      Influenza notifications number in the tens of thousands annually
+      while IPD notifications number in the low thousands -- this
+      difference reflects testing volume and disease epidemiology, not
+      relative importance.
+  methodology_awareness:
+    applies: true
+    expected: >
+      For influenza: notes passive surveillance with PCR-dominant testing,
+      high testing volume, significant under-reporting, and COVID-19
+      disruption (near-zero 2020-2021). For pneumococcal: notes invasive
+      disease only (not all pneumonia), vaccination program changes
+      (7vPCV 2005, 13vPCV 2011) affecting serotype distribution, and
+      that COVID measures also reduced IPD but the recovery trajectory
+      differs from influenza. Both are affected by COVID-19 but the
+      mechanisms differ.
+  scope_adherence:
+    applies: true
+    expected: >
+      Compares notification trends only, not disease burden or severity.
+      Does not claim that changes in notifications reflect changes in
+      disease prevalence. Acknowledges that notifications are a proxy
+      for disease activity, not a direct measure of it.
+  causal_inference_boundaries:
+    applies: true
+    expected: >
+      Does not attribute trend changes to specific causes. Notes that
+      multiple factors influence notification trends -- testing practices,
+      public health measures, vaccination programs, genuine changes in
+      disease circulation -- and that surveillance data alone cannot
+      disentangle these.
+  geographic_resolution_knowledge:
+    applies: false
+    expected: ""
+  terminology_fluency:
+    applies: true
+    expected: >
+      Maps "pneumococcal disease" to "Invasive pneumococcal disease (IPD)"
+      in the NNDSS. Clarifies that IPD captures invasive disease
+      (bacteraemia, meningitis) only, not all pneumonia caused by
+      S. pneumoniae. Maps influenza to "Influenza (laboratory confirmed)."
+
+gold_standard_reasoning:
+  - step: 1
+    consideration: "query_interpretation"
+    thought: >
+      The user wants a comparison of influenza and pneumococcal disease
+      notification trends over 5 years (approximately 2019-2023 or
+      2020-2024 depending on data availability). This requires retrieving
+      trend data for both diseases and comparing them, but the comparison
+      must be methodologically grounded.
+  - step: 2
+    consideration: "dataset_selection"
+    thought: >
+      Both datasets come from NNDSS. Influenza (laboratory confirmed) and
+      Invasive pneumococcal disease (IPD). Need to retrieve trend data for
+      both. Should call describe_datasets first to understand the comparison
+      context, then query_notifications for each disease with query_type=trend.
+  - step: 3
+    consideration: "comparability_assessment"
+    thought: >
+      These diseases are fundamentally different in scale, testing, and
+      epidemiology. Influenza: ~100K+ notifications/year pre-COVID, driven
+      by high testing volume, seasonal peaks. IPD: ~2,000-3,000/year,
+      less seasonal, heavily influenced by vaccination programs. Comparing
+      raw counts side by side is misleading. The comparison should focus
+      on the shape of trends (direction and magnitude of change) rather
+      than absolute numbers.
+  - step: 4
+    consideration: "covid_impact"
+    thought: >
+      Both diseases saw reduced notifications during 2020-2021 due to
+      COVID-19 public health measures, but the mechanisms and recovery
+      differ. Influenza dropped to near-zero (respiratory transmission
+      highly sensitive to NPIs) and rebounded sharply in 2022. IPD also
+      decreased but less dramatically, and recovery has been more gradual.
+      This differential recovery is itself informative about transmission
+      dynamics but should not be over-interpreted from surveillance data.
+  - step: 5
+    consideration: "response_construction"
+    thought: >
+      Present trends for each disease separately with context, then discuss
+      the comparison carefully, noting why direct count comparison is
+      problematic. Use a table for clarity. Include methodology caveats
+      for each disease.
+
+gold_standard_answer: |
+  Here is a comparison of notification trends for the two diseases over the
+  past 5 years. Important: these two diseases have fundamentally different
+  surveillance profiles, so the comparison requires careful interpretation.
+
+  **Influenza (laboratory confirmed)** notifications saw a dramatic
+  disruption: near-zero counts in 2020-2021 due to COVID-19 public health
+  measures, followed by a sharp resurgence in 2022-2023. The 2022 season
+  was notably intense, with some states recording higher notifications than
+  any pre-COVID year.
+
+  **Invasive pneumococcal disease (IPD)** notifications also declined
+  during 2020-2021 but less dramatically than influenza. Recovery has been
+  more gradual. IPD trends are additionally influenced by ongoing
+  vaccination program changes (13vPCV serotype effects continuing to play
+  out).
+
+  **Why direct comparison of counts is problematic:**
+  - Scale: influenza notifications are ~50-100x higher than IPD, reflecting
+    differences in disease incidence, testing volume, and case definitions
+  - Testing: influenza has high-volume PCR testing; IPD requires isolation
+    from a normally sterile site (blood/CSF culture)
+  - Under-reporting: influenza is substantially under-reported; IPD has
+    better ascertainment because invasive disease is severe enough that
+    most cases are hospitalised and tested
+  - Vaccination: pneumococcal vaccination programs directly affect IPD
+    serotype distribution; influenza vaccination is less visible in
+    notification trends
+
+  Both diseases show the COVID-19 disruption, but comparing the recovery
+  trajectories reveals that respiratory transmission (influenza) was more
+  sensitive to non-pharmaceutical interventions than invasive bacterial
+  disease (IPD). This observation is consistent with known transmission
+  dynamics but should not be over-interpreted from surveillance data alone.
+
+bad_answer_examples:
+  - description: "Presents a side-by-side table of influenza and IPD counts without noting that the comparison is problematic"
+    why_bad: >
+      Juxtaposing raw counts implies they are comparable. Influenza
+      notifications outnumber IPD by 50-100x, which reflects testing
+      volume and disease epidemiology, not relative importance. Without
+      context, the user may conclude that IPD is negligible.
+  - description: "States 'influenza is more common than pneumococcal disease'"
+    why_bad: >
+      Conflates notification counts with disease frequency. Different
+      ascertainment rates, testing practices, and case definitions make
+      this comparison invalid from raw notification data. IPD captures
+      only invasive disease, not all pneumococcal infections.
+  - description: "Attributes the 2022 influenza surge to 'immunity debt' without qualification"
+    why_bad: >
+      Makes a causal claim from surveillance data. The agent can describe
+      the pattern (reduced notifications during COVID, resurgence after)
+      but should not attribute causation without controlled evidence.
+
+question_type: "cross_dataset"
+can_server_answer: "yes"

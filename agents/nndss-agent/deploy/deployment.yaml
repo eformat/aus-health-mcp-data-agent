@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nndss-agent
+  labels:
+    app.kubernetes.io/name: nndss-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nndss-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nndss-agent
+    spec:
+      containers:
+        - name: agent
+          image: quay.io/eformat/nndss-agent:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: MODEL_NAME
+              value: "qwen36-27b"
+            - name: MODEL_ENDPOINT
+              value: "http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: nndss-agent-maas-key
+                  key: api-key
+            - name: TRINO_QUERY_HOST
+              value: "trino"
+            - name: TRINO_QUERY_PORT
+              value: "8080"
+            - name: MLFLOW_TRACKING_URI
+              value: "https://mlflow.redhat-ods-applications.svc:8443/mlflow"
+            - name: MLFLOW_WORKSPACE
+              value: "nndss-agent"
+            - name: MLFLOW_EXPERIMENT_NAME
+              value: "nndss-data-agent"
+            - name: MLFLOW_TRACKING_TOKEN_FILE
+              value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+            - name: MLFLOW_TRACKING_INSECURE_TLS
+              value: "true"
+            - name: CHAINLIT_AUTH_SECRET
+              value: "1a0d58d9117ea22a6d67d1546502182efe60dfbf5eb5ee87f4fae8b76296bf33"
+            - name: AUTH_USERNAME
+              value: "admin"
+            - name: AUTH_PASSWORD
+              value: "admin"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10

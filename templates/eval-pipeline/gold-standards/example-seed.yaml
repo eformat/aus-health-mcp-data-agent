@@ -1,0 +1,108 @@
+# Example gold standard for an environmental monitoring agent.
+#
+# Gold standards define the expected reasoning for each evaluation question.
+# They are NOT answer templates -- the agent doesn't need to match word-for-word.
+# They establish what key considerations must be present.
+
+id: q01
+question: "What is the current PM2.5 level in Portland, Oregon?"
+source: manual-seed
+
+# What this question tests
+evaluation_criteria:
+  - "Data retrieval accuracy"
+  - "Methodology awareness"
+  - "Geographic resolution knowledge"
+
+# Which of the 7 capability dimensions apply, and what reasoning is expected
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: >
+      Considers AQS (regulatory-grade, fixed stations) vs PurpleAir
+      (consumer sensors, denser coverage) vs satellite-derived estimates.
+      For a "current level" question, AQS and PurpleAir are most appropriate
+      (real-time). Satellite provides only daily averages.
+  methodology_awareness:
+    applies: true
+    expected: >
+      Notes that AQS uses FRM/FEM instruments (gravimetric analysis or
+      continuous monitors). PurpleAir uses laser particle counters with EPA
+      correction factors. The two measurement methods produce systematically
+      different readings.
+  scope_adherence:
+    applies: false
+    expected: ""
+  causal_inference_boundaries:
+    applies: false
+    expected: ""
+  geographic_resolution_knowledge:
+    applies: true
+    expected: >
+      AQS provides point measurements at specific monitor locations.
+      Portland has multiple AQS monitors -- the agent should identify which
+      one(s) are closest to "downtown." The reading represents that point,
+      not the entire metro area.
+  terminology_fluency:
+    applies: true
+    expected: >
+      Maps "PM2.5 level" to both the raw concentration (ug/m3) and the AQI
+      category. Explains what PM2.5 means (particulate matter 2.5 micrometers
+      and smaller).
+
+# Step-by-step expected reasoning chain
+gold_standard_reasoning:
+  - step: 1
+    consideration: "query_interpretation"
+    thought: >
+      The user wants the current PM2.5 reading near downtown Portland, OR.
+      "Current" implies real-time or near-real-time data.
+  - step: 2
+    consideration: "dataset_selection"
+    thought: >
+      AQS provides regulatory-grade measurements from fixed monitors. For
+      "current" readings, AQS hourly data is the most authoritative source.
+      PurpleAir offers denser coverage but lower accuracy. Satellite data
+      provides only daily averages, not suitable for "current" queries.
+  - step: 3
+    consideration: "geographic_resolution"
+    thought: >
+      Portland has several AQS monitors. The agent should identify the one(s)
+      nearest to downtown and note that the reading represents that specific
+      location, not the entire city.
+  - step: 4
+    consideration: "response_construction"
+    thought: >
+      Present the PM2.5 concentration (ug/m3), the corresponding AQI value
+      and category, the specific monitor location, and note that this is a
+      point measurement. Include methodology context about FRM/FEM instruments.
+
+# What a good answer looks like (reference, not a required template)
+gold_standard_answer: |
+  The current PM2.5 reading at the Portland - SE Lafayette AQS monitor
+  (station 41-051-0080) is 8.2 ug/m3, corresponding to an AQI of 34
+  ("Good" category).
+
+  This measurement comes from an EPA Federal Reference Method (FRM)
+  instrument. The reading represents air quality at this specific monitor
+  location in SE Portland, not the entire metro area. Other AQS monitors
+  in the Portland area may show different readings depending on local
+  conditions.
+
+  For denser spatial coverage, PurpleAir sensors are available throughout
+  Portland but use consumer-grade laser particle counters (with EPA
+  correction factors applied), which may produce systematically different
+  readings from FRM instruments.
+
+# Examples of bad answers and why they're bad
+bad_answer_examples:
+  - description: "Returns a number without citing the specific monitor location"
+    why_bad: "AQS data is point-specific. Without the monitor location, the user
+      can't assess whether the reading represents their area of interest."
+  - description: "Presents PurpleAir data as equivalent to AQS regulatory data"
+    why_bad: "Different measurement methodologies produce systematically different
+      readings. The agent should note the difference."
+
+primary_dataset: "AQS"
+question_type: "data_retrieval"
+can_server_answer: "yes"

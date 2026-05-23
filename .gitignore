@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing / linting caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.cache_ggshield/
+
+# Session scratch
+NEXT_SESSION.md
+RESUME.md
+TODO_NEXT.md
+notes.md
+
+# KFP artifacts
+*.yaml.compiled
+checkpoints/
+
+.venv/
+.venv-eval/
+.chainlit/
+

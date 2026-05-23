@@ -1,0 +1,190 @@
+# Gold standard: methodology comparison question.
+#
+# Tests whether the agent can articulate the differences between
+# NNDSS passive surveillance and sentinel surveillance systems,
+# demonstrating deep methodology awareness.
+
+id: q07
+question: "How does NNDSS collect influenza data compared to sentinel surveillance?"
+source: manual-seed
+
+evaluation_criteria:
+  - "Methodology awareness: deep understanding of passive vs sentinel surveillance"
+  - "Cross-dataset reasoning: comparing NNDSS with ASPREN/sentinel systems"
+  - "Terminology fluency: correct use of surveillance terminology"
+  - "Scope awareness: what each system can and cannot tell you"
+
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: >
+      Compares NNDSS (passive, notification-based, laboratory-confirmed)
+      with sentinel surveillance systems, particularly ASPREN (Australian
+      Sentinel Practices Research Network) which is Australia's primary
+      GP sentinel surveillance system for influenza-like illness. May
+      also reference FluTracking (participatory/crowdsourced surveillance).
+      Should articulate which system is better for which purpose: NNDSS
+      for total notification burden, ASPREN for community consultation
+      rates, FluTracking for untested community illness.
+  methodology_awareness:
+    applies: true
+    expected: >
+      This is the primary dimension being tested. Must demonstrate
+      understanding of:
+      - NNDSS: passive surveillance, relies on clinicians/labs to notify,
+        laboratory-confirmed only, captures the tested subset, mandatory
+        notification, national coverage
+      - Sentinel surveillance (ASPREN): active surveillance through a
+        volunteer network of GPs, clinical diagnosis of ILI (not
+        necessarily lab-confirmed), captures healthcare-seeking patterns
+        including untested cases, not population-representative (selected
+        practices), provides consultation rates rather than counts
+      - Each system's biases: NNDSS biased towards tested/confirmed cases;
+        sentinel biased towards GP-attending populations and participating
+        practices
+  scope_adherence:
+    applies: true
+    expected: >
+      Correctly explains what each system can and cannot tell you. NNDSS
+      gives you lab-confirmed notification counts (the floor of detected
+      disease). Sentinel surveillance gives you consultation patterns in
+      a defined practice network (closer to community illness but not
+      population-representative).
+  causal_inference_boundaries:
+    applies: false
+    expected: ""
+  geographic_resolution_knowledge:
+    applies: true
+    expected: >
+      Notes that NNDSS provides state/territory level data. Sentinel
+      networks like ASPREN may have different geographic coverage patterns
+      based on participating practice locations, which tend to be
+      concentrated in urban areas.
+  terminology_fluency:
+    applies: true
+    expected: >
+      Correctly uses surveillance epidemiology terminology: passive vs
+      active/sentinel surveillance, notifications vs consultations,
+      case definitions, ascertainment, ILI (influenza-like illness) vs
+      laboratory-confirmed influenza. Explains these terms for the user.
+
+gold_standard_reasoning:
+  - step: 1
+    consideration: "query_interpretation"
+    thought: >
+      The user wants to understand the methodological differences between
+      NNDSS influenza data collection and sentinel surveillance. This is
+      a methodology comparison question, not a data retrieval question.
+      The agent should use describe_datasets and get_methodology to ground
+      the comparison.
+  - step: 2
+    consideration: "nndss_methodology"
+    thought: >
+      NNDSS uses passive surveillance. Clinicians and laboratories are
+      legally required to notify specified diseases to state/territory
+      health authorities. For influenza, notifications require laboratory
+      confirmation (PCR, culture, DIF, serology). The system captures
+      only the subset of infections where someone sought healthcare, was
+      tested, and had a positive result. This creates systematic
+      under-reporting of mild cases.
+  - step: 3
+    consideration: "sentinel_methodology"
+    thought: >
+      Sentinel surveillance (ASPREN) uses a network of volunteer GP
+      practices that report consultations for influenza-like illness
+      (ILI) each week. ILI is clinically defined (fever + cough/sore
+      throat) and does not require laboratory confirmation. This captures
+      a broader range of illness severity but is not population-
+      representative -- it depends on which practices participate and
+      which patients attend GPs. The output is consultation rates
+      (per 1,000 consultations) rather than case counts.
+  - step: 4
+    consideration: "comparison_synthesis"
+    thought: >
+      The two systems are complementary, not competing. NNDSS gives you
+      the confirmed case floor (high specificity, low sensitivity for
+      total disease). Sentinel surveillance gives you community illness
+      patterns (lower specificity, broader capture). Together they provide
+      a more complete picture. The agent should frame them as complementary
+      rather than one being "better."
+  - step: 5
+    consideration: "response_construction"
+    thought: >
+      Present a structured comparison of the two approaches, explaining
+      the trade-offs and when each is more useful. Include a comparison
+      table for clarity. Ground the answer in methodology retrieved from
+      the tools.
+
+gold_standard_answer: |
+  NNDSS and sentinel surveillance systems collect influenza data in
+  fundamentally different ways, and they answer different questions.
+
+  **NNDSS (Passive Surveillance)**
+  - **How it works**: Clinicians and laboratories are legally required to
+    notify laboratory-confirmed influenza cases to state/territory health
+    authorities, who forward de-identified records to the Australian CDC.
+  - **Case definition**: Requires laboratory confirmation -- PCR
+    (predominant since ~2010), viral culture, DIF, or serology.
+  - **What it captures**: The tested and confirmed subset of influenza
+    infections. People with mild illness who don't see a doctor, or who
+    see a doctor but aren't tested, are not captured.
+  - **Output**: Notification counts by state/territory, year, age group.
+  - **Strengths**: National coverage, mandatory reporting, high specificity
+    (lab-confirmed), consistent case definition.
+  - **Limitations**: Significant under-reporting of mild cases, sensitive
+    to testing practices (PCR adoption ~2010 changed detection rates),
+    influenced by healthcare-seeking behaviour.
+
+  **Sentinel Surveillance (e.g., ASPREN)**
+  - **How it works**: A volunteer network of GP practices reports
+    consultations for influenza-like illness (ILI) each week. Some
+    practices also collect swabs for laboratory testing.
+  - **Case definition**: Clinical -- ILI defined as fever plus cough or
+    sore throat. Laboratory confirmation is optional (collected for a
+    subset to estimate positivity rates).
+  - **What it captures**: GP consultations for ILI, including cases that
+    are never formally tested. Provides a view of community illness
+    patterns rather than confirmed cases.
+  - **Output**: ILI consultation rates (per 1,000 consultations), ILI
+    positivity rates (proportion confirmed by lab testing).
+  - **Strengths**: Captures milder illness not tested by NNDSS, provides
+    community-level illness trends, consistent weekly reporting.
+  - **Limitations**: Not population-representative (depends on
+    participating practices), volunteer bias, clinical ILI definition
+    captures non-influenza respiratory illness, geographic coverage gaps.
+
+  **When to use which**:
+  - NNDSS for: total notification burden, lab-confirmed case counts,
+    state-level comparisons, long-term trends in confirmed disease
+  - Sentinel surveillance for: real-time community illness trends,
+    consultation rates, early season detection, understanding the
+    gap between confirmed cases and community illness
+
+  The two systems are complementary. NNDSS provides the floor of detected
+  disease (high specificity). Sentinel surveillance provides a broader
+  view of community illness (lower specificity, wider capture). Together
+  they give a more complete picture of influenza activity than either
+  alone.
+
+bad_answer_examples:
+  - description: "States 'NNDSS is more accurate than sentinel surveillance'"
+    why_bad: >
+      Frames the comparison as accuracy rather than complementary design.
+      NNDSS has higher specificity (lab-confirmed) but lower sensitivity
+      (misses untested cases). Sentinel surveillance has broader capture
+      but lower specificity (clinical ILI includes non-influenza illness).
+      Neither is more "accurate" -- they measure different things.
+  - description: "Describes NNDSS methodology without explaining sentinel surveillance"
+    why_bad: >
+      The user asked for a comparison. Describing only one side fails to
+      answer the question. The agent should demonstrate understanding of
+      both systems and their trade-offs.
+  - description: "Provides a generic description of passive vs active surveillance without connecting to NNDSS and ASPREN specifically"
+    why_bad: >
+      The agent should ground the comparison in the specific Australian
+      systems it has access to, not provide a textbook definition.
+      Using describe_datasets and get_methodology to retrieve specific
+      details makes the answer authoritative rather than generic.
+
+question_type: "methodology_comparison"
+can_server_answer: "yes"

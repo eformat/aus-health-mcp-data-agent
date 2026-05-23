@@ -1,0 +1,168 @@
+# Gold standard: causal inference boundary question.
+#
+# Tests whether the agent correctly refuses to make causal claims from
+# observational surveillance data, while still being helpful by
+# describing what the data CAN show.
+
+id: q05
+question: "Does vaccination cause the decline in pertussis notifications?"
+source: manual-seed
+
+evaluation_criteria:
+  - "Causal inference boundaries: refuses to make causal claims from surveillance data"
+  - "Scope adherence: redirects to what the data can show"
+  - "Terminology fluency: correct handling of pertussis"
+  - "Dataset availability awareness: pertussis may not be in public datasets"
+
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: >
+      Recognises that pertussis may not be one of the four diseases
+      available in the NNDSS public datasets served by this MCP server
+      (influenza, meningococcal, pneumococcal, salmonellosis). However,
+      pertussis is a nationally notifiable disease in Australia, so the
+      agent should note that NNDSS does collect pertussis data even if
+      it is not available through this server. The agent should acknowledge
+      the dataset limitation rather than failing silently.
+  methodology_awareness:
+    applies: true
+    expected: >
+      If the agent provides any pertussis context, it should note that
+      pertussis notification patterns are complex -- cyclical epidemics
+      every 3-4 years, waning vaccine immunity, changes in case
+      definitions and testing over time. Even if NNDSS showed a decline
+      in pertussis notifications, attributing that to vaccination requires
+      controlled study designs.
+  scope_adherence:
+    applies: true
+    expected: >
+      Clearly states that causal claims about vaccination effects cannot
+      be established from surveillance notification data. Surveillance
+      data can show temporal associations (notifications declined after
+      vaccination program introduction) but cannot prove causation.
+      Multiple confounders may influence notification trends.
+  causal_inference_boundaries:
+    applies: true
+    expected: >
+      This is the primary dimension being tested. The agent must
+      explicitly refuse to make the causal claim. It should explain that
+      NNDSS is observational surveillance data that shows notification
+      patterns, not causation. Establishing whether vaccination caused a
+      decline requires controlled study designs -- cohort studies,
+      case-control studies, or interrupted time series analyses with
+      appropriate controls. The agent should offer to show what the
+      notification trend looks like, while making clear this cannot
+      prove causation.
+  geographic_resolution_knowledge:
+    applies: false
+    expected: ""
+  terminology_fluency:
+    applies: true
+    expected: >
+      Maps "pertussis" correctly. Notes that pertussis is also known as
+      "whooping cough." Clarifies that pertussis notifications in the
+      NNDSS refer to laboratory-confirmed or clinically diagnosed cases
+      meeting the national case definition.
+
+gold_standard_reasoning:
+  - step: 1
+    consideration: "query_interpretation"
+    thought: >
+      The user is asking a causal question: does vaccination CAUSE the
+      decline in pertussis notifications. This is asking the agent to
+      establish a causal relationship from surveillance data, which is
+      beyond what NNDSS data can support.
+  - step: 2
+    consideration: "dataset_availability"
+    thought: >
+      Pertussis is a nationally notifiable disease but may not be
+      available through this MCP server's public datasets (which cover
+      influenza, meningococcal, pneumococcal, salmonellosis). The agent
+      should check and report this honestly.
+  - step: 3
+    consideration: "causal_inference_boundary"
+    thought: >
+      Even if pertussis notification data were available, NNDSS is
+      observational surveillance data. It can show that notifications
+      declined during a period when vaccination was introduced, but
+      it cannot establish causation. Multiple factors influence pertussis
+      notifications: vaccination coverage, waning immunity, changes in
+      case definitions, testing practices, natural epidemic cycles.
+      Causal inference about vaccine effectiveness requires controlled
+      study designs.
+  - step: 4
+    consideration: "helpful_redirection"
+    thought: >
+      While declining the causal claim, the agent should be helpful by
+      explaining what the data CAN show (notification trends over time),
+      what would be needed to establish causation (controlled studies),
+      and where the user might find vaccine effectiveness evidence
+      (published VE studies, Australian Immunisation Handbook).
+  - step: 5
+    consideration: "response_construction"
+    thought: >
+      Decline the causal claim clearly, explain why surveillance data
+      cannot answer causal questions, note the dataset availability
+      limitation, and redirect to what the data can show and where to
+      find causal evidence. Confidence should be appropriate for a
+      scope-boundary response.
+
+gold_standard_answer: |
+  I cannot establish whether vaccination causes the decline in pertussis
+  notifications from surveillance data alone.
+
+  There are two issues with this question:
+
+  1. **Data availability**: Pertussis is not currently available through
+     the NNDSS public datasets served here. The available datasets cover
+     influenza, meningococcal disease, pneumococcal disease, and
+     salmonellosis. Pertussis is notifiable in Australia and NNDSS does
+     collect this data, but it is not accessible through this server.
+
+  2. **Causal inference limitation**: Even if pertussis data were
+     available, NNDSS is an observational passive surveillance system.
+     It can show temporal patterns in notifications -- for example, that
+     notifications decreased in a period following vaccination program
+     introduction. However, showing a temporal association is not the
+     same as establishing causation. Multiple factors influence pertussis
+     notification trends:
+     - Vaccination coverage changes
+     - Natural epidemic cycles (pertussis has 3-4 year cycles)
+     - Changes in case definitions and testing practices
+     - Waning vaccine immunity (acellular pertussis vaccine)
+     - Clinician awareness and testing behaviour
+
+  **What would establish causation**: Vaccine effectiveness studies using
+  case-control or cohort designs, or interrupted time series analyses
+  with appropriate controls. The Australian Immunisation Handbook and
+  published vaccine effectiveness studies provide this evidence.
+
+  **What I CAN offer**: If pertussis data were available, I could show
+  you the notification trend over time and note temporal associations
+  with vaccination program changes, while being clear that this shows
+  association, not causation.
+
+bad_answer_examples:
+  - description: "States 'Yes, vaccination has reduced pertussis notifications'"
+    why_bad: >
+      Makes a causal claim from surveillance data. While there is strong
+      evidence from controlled studies that pertussis vaccination reduces
+      disease, the NNDSS surveillance data alone cannot establish this.
+      The agent should direct to appropriate evidence sources rather than
+      making the causal claim itself.
+  - description: "Discusses vaccination effectiveness using parametric knowledge without noting the data limitation"
+    why_bad: >
+      Supplements with parametric knowledge about vaccine effectiveness
+      rather than staying grounded in what the data source can and cannot
+      show. The agent's role is to interpret the data it has access to,
+      not to serve as a general knowledge assistant.
+  - description: "Simply states 'pertussis is not available' without addressing the causal inference issue"
+    why_bad: >
+      While the dataset limitation is real, the more important teaching
+      point is that surveillance data cannot answer causal questions
+      regardless. Addressing only the data availability issue misses the
+      core scope boundary.
+
+question_type: "scope_boundary"
+can_server_answer: "no"

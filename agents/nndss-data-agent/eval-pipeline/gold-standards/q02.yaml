@@ -1,0 +1,140 @@
+# Gold standard: state comparison requiring cross-state data retrieval.
+#
+# Tests whether the agent can query all states, identify the highest,
+# and appropriately caveat that raw counts reflect population size
+# as much as disease burden.
+
+id: q02
+question: "Which state had the highest salmonellosis notifications in 2022?"
+source: manual-seed
+
+evaluation_criteria:
+  - "Data retrieval across all states for a single year"
+  - "Cross-state comparison with population context"
+  - "Methodology awareness: under-reporting ratio for salmonellosis"
+  - "Terminology fluency: salmonellosis as the NNDSS indicator"
+
+relevant_capabilities:
+  cross_dataset_reasoning:
+    applies: true
+    expected: >
+      Identifies NNDSS Salmonellosis as the correct dataset. Notes that
+      OzFoodNet is an alternative for foodborne disease surveillance but
+      is outbreak-focused rather than a comprehensive case register.
+      For a "which state had the highest" question, NNDSS is the right
+      source because it provides state-level notification counts.
+  methodology_awareness:
+    applies: true
+    expected: >
+      Notes that salmonellosis has an estimated 7-10 community cases per
+      notification, making raw notification counts a substantial
+      undercount. Testing and healthcare-seeking behaviour varies by
+      state, so interstate comparisons of raw counts may partly reflect
+      differences in testing practices rather than true disease burden.
+  scope_adherence:
+    applies: true
+    expected: >
+      Stays within what the data shows -- notification counts by state.
+      Does not claim to show the true burden of salmonellosis or draw
+      conclusions about food safety standards across states.
+  causal_inference_boundaries:
+    applies: false
+    expected: ""
+  geographic_resolution_knowledge:
+    applies: true
+    expected: >
+      Confirms that state/territory is the resolution available. Notes
+      that the answer identifies which state had the highest count but
+      that this largely reflects population size unless adjusted to
+      per-capita rates.
+  terminology_fluency:
+    applies: true
+    expected: >
+      Confirms salmonellosis as the NNDSS indicator, noting it excludes
+      S. Typhi and S. Paratyphi (which are notified separately). If the
+      user thinks of this as "food poisoning," notes that salmonellosis
+      is the most common notifiable foodborne disease but not the only one.
+
+gold_standard_reasoning:
+  - step: 1
+    consideration: "query_interpretation"
+    thought: >
+      The user wants to know which Australian state or territory had the
+      most salmonellosis notifications in 2022. This requires querying
+      all states for that year and comparing.
+  - step: 2
+    consideration: "dataset_selection"
+    thought: >
+      NNDSS Salmonellosis is the correct dataset. OzFoodNet provides
+      outbreak investigation data but not comprehensive case counts by
+      state. NNDSS is the only source for state-level notification totals.
+  - step: 3
+    consideration: "population_context"
+    thought: >
+      Raw notification counts are heavily driven by population size. NSW
+      and QLD typically have the highest salmonellosis counts because they
+      are the most populous states and because QLD has warm-climate
+      conditions that favour Salmonella transmission. The agent should note
+      that a per-capita comparison would be more informative, but NNDSS
+      provides counts, not rates. The agent should not compute rates from
+      parametric population knowledge.
+  - step: 4
+    consideration: "under_reporting"
+    thought: >
+      Salmonellosis has an estimated 7-10x under-reporting ratio. The
+      notification count represents a small fraction of actual cases.
+      This under-reporting may vary by state based on local testing
+      practices and healthcare access.
+  - step: 5
+    consideration: "response_construction"
+    thought: >
+      Present the state with the highest count, show the top few states
+      for context, note that counts are driven by population size, mention
+      under-reporting, and include the data confidence card.
+
+gold_standard_answer: |
+  In 2022, Queensland (QLD) had the highest number of salmonellosis
+  notifications reported to the NNDSS, followed by New South Wales (NSW)
+  and Victoria (VIC).
+
+  Important context for this comparison:
+
+  1. Raw notification counts largely reflect population size. QLD
+     consistently reports high salmonellosis counts due to both its large
+     population and warm-climate conditions that favour Salmonella
+     transmission. A per-capita comparison would be more meaningful, but
+     NNDSS public datasets provide counts, not rates.
+
+  2. Under-reporting is significant. An estimated 7-10 community cases
+     of salmonellosis occur for every notification. Many people with mild
+     gastroenteritis do not seek healthcare or have a stool sample
+     collected.
+
+  3. Testing practices vary. States with more active foodborne disease
+     investigation programs or different stool testing policies may have
+     higher notification rates independent of true disease incidence.
+
+  Salmonellosis in the NNDSS includes all Salmonella species except
+  S. Typhi and S. Paratyphi, which are notified separately.
+
+bad_answer_examples:
+  - description: "States 'QLD has the worst food safety in Australia'"
+    why_bad: >
+      Makes an unsupported causal claim. Higher notifications may reflect
+      population size, climate, testing practices, or genuine incidence
+      differences. Notification data alone cannot determine food safety
+      standards.
+  - description: "Returns the state without noting population context"
+    why_bad: >
+      Without population context, the user may incorrectly conclude that
+      QLD has a worse salmonellosis problem when the count primarily
+      reflects its large population. This is misleading.
+  - description: "Calculates per-capita rates using memorised population data"
+    why_bad: >
+      The agent should not supplement NNDSS data with parametric knowledge.
+      It should note that per-capita rates would be more informative and
+      that NNDSS provides counts, not rates, rather than computing rates
+      from unverifiable population figures.
+
+question_type: "data_retrieval"
+can_server_answer: "yes"

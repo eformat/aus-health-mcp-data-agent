@@ -1,0 +1,40 @@
+# Agent configuration with environment variable substitution.
+# All deployment-variable values use ${VAR:-default} so the agent
+# runs locally with zero external config.
+
+agent:
+  name: ${AGENT_NAME:-domain-data-agent}
+  version: "1.0.0"
+  description: >
+    Methodology-aware data agent with structured reasoning protocol.
+    Replace with your domain description.
+
+model:
+  name: ${MODEL_NAME:-openai/your-model-id}
+  endpoint: ${MODEL_ENDPOINT:-http://localhost:8000/v1}
+  temperature: 0.3
+  max_tokens: 4096
+
+server:
+  host: ${HOST:-0.0.0.0}
+  port: ${PORT:-8080}
+
+# MCP servers the agent connects to at startup.
+# The framework discovers tools via the MCP protocol.
+mcp_servers:
+  - name: ${MCP_SERVER_NAME:-domain-data-server}
+    url: ${MCP_SERVER_URL:-http://localhost:9090/mcp/}
+    # transport: streamable-http  # auto-detected by FastMCP v3
+
+# Platform mode (OGX). When enabled, the framework delegates tool
+# orchestration to OGX and the mcp_servers block above is ignored.
+platform:
+  enabled: ${PLATFORM_MODE:-false}
+  endpoint: ${OGX_ENDPOINT:-}
+
+# Logging
+logging:
+  level: ${LOG_LEVEL:-INFO}
+
+# Agent loop
+max_iterations: ${MAX_ITERATIONS:-10}
