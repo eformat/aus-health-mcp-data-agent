@@ -1,0 +1,51 @@
+metadata:
+  name: NNDSS Question Variant Generator
+  description: >
+    Generates evaluation question variants from seed questions using an LLM.
+    Each seed question produces 3 variants by changing disease, state, year,
+    or query pattern while preserving the capability dimension being tested.
+  version: 1.0.0
+  license: Apache-2.0
+  recommended_models:
+    default: openai/gemma4
+    compatible:
+      - openai/gemma4
+      - openai/qwen36-27b
+  tags:
+    - evaluation
+    - question-generation
+    - sdg
+  dataset_requirements:
+    required_columns:
+      - question
+      - question_type
+      - expected_keywords
+    description: >
+      Seed evaluation questions with type and expected keywords.
+      Each row produces 3 variant questions.
+blocks:
+  - block_type: PromptBuilderBlock
+    block_config:
+      block_name: build_question_gen_prompt
+      input_cols:
+        question: question
+        question_type: question_type
+        expected_keywords: expected_keywords
+      output_cols: question_gen_messages
+      prompt_config_path: prompts/question_gen.yaml
+  - block_type: LLMChatBlock
+    block_config:
+      block_name: generate_variants
+      input_cols: question_gen_messages
+      output_cols: question_gen_response
+      async_mode: true
+      temperature: 0.7
+      max_tokens: 1024
+      response_format:
+        type: json_object
+  - block_type: LLMResponseExtractorBlock
+    block_config:
+      block_name: extract_variants
+      input_cols: question_gen_response
+      field_prefix: question_gen_
+      extract_content: true

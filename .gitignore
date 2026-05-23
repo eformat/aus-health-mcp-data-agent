@@ -49,4 +49,5 @@ checkpoints/
 .venv/
 .venv-eval/
 .chainlit/
+*.db
 

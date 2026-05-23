@@ -33,6 +33,34 @@ components:
           parameterType: STRING
         experiment_name:
           parameterType: STRING
+  comp-generate-variants-op:
+    executorLabel: exec-generate-variants-op
+    inputDefinitions:
+      parameters:
+        dataset_id:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+        gen_model:
+          parameterType: STRING
+        llm_base_url:
+          parameterType: STRING
+        mlflow_tracking_uri:
+          parameterType: STRING
+        mlflow_workspace:
+          defaultValue: ''
+          isOptional: true
+          parameterType: STRING
+        variants_per_seed:
+          defaultValue: 3.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      parameters:
+        dataset_id:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
   comp-report-results-op:
     executorLabel: exec-report-results-op
     inputDefinitions:
@@ -138,30 +166,31 @@ deploymentSpec:
           \ as _fluent\n        client = mlflow.MlflowClient()\n        exps = client.search_experiments(filter_string=f\"\
           name = '{experiment_name}'\")\n        if exps:\n            _fluent._active_experiment_id\
           \ = exps[0].experiment_id\n    else:\n        mlflow.set_experiment(experiment_name)\n\
-          \n    # NNDSS evaluation test cases\n    test_cases = [\n        {\"inputs\"\
-          : {\"question\": \"How many influenza cases were notified in NSW in 2023?\"\
-          }, \"expectations\": {\"expected_keywords\": [\"notifications\", \"laboratory-confirmed\"\
-          ], \"question_type\": \"data_retrieval\"}},\n        {\"inputs\": {\"question\"\
-          : \"Which state had the highest salmonellosis notifications in 2022?\"},\
-          \ \"expectations\": {\"expected_keywords\": [\"salmonellosis\"], \"question_type\"\
-          : \"data_retrieval\"}},\n        {\"inputs\": {\"question\": \"Compare influenza\
-          \ and pneumococcal disease notification trends over the past 5 years\"},\
-          \ \"expectations\": {\"expected_keywords\": [\"influenza\", \"pneumococcal\"\
-          ], \"question_type\": \"cross_dataset\"}},\n        {\"inputs\": {\"question\"\
-          : \"What is the meningococcal disease rate per 100,000 in Victoria?\"},\
-          \ \"expectations\": {\"expected_keywords\": [\"per 100,000\", \"population\"\
-          ], \"question_type\": \"scope_boundary\"}},\n        {\"inputs\": {\"question\"\
-          : \"Does vaccination cause the decline in pertussis notifications?\"}, \"\
-          expectations\": {\"expected_keywords\": [\"cannot\", \"causal\"], \"question_type\"\
-          : \"scope_boundary\", \"forbidden_content\": [\"yes, vaccination causes\"\
-          ]}},\n        {\"inputs\": {\"question\": \"What are the influenza notifications\
-          \ in the Sydney LGA?\"}, \"expectations\": {\"expected_keywords\": [\"state\"\
-          , \"territory\"], \"question_type\": \"geographic_resolution\"}},\n    \
-          \    {\"inputs\": {\"question\": \"How does NNDSS collect influenza data\
-          \ compared to sentinel surveillance?\"}, \"expectations\": {\"expected_keywords\"\
-          : [\"passive\", \"surveillance\"], \"question_type\": \"methodology_comparison\"\
-          }},\n        {\"inputs\": {\"question\": \"What food poisoning cases were\
-          \ reported in Queensland last year?\"}, \"expectations\": {\"expected_keywords\"\
+          \n    # 10 seed questions \u2014 SDG Hub generates variants in a separate\
+          \ step\n    test_cases = [\n        {\"inputs\": {\"question\": \"How many\
+          \ influenza cases were notified in NSW in 2023?\"}, \"expectations\": {\"\
+          expected_keywords\": [\"notifications\", \"laboratory-confirmed\"], \"question_type\"\
+          : \"data_retrieval\"}},\n        {\"inputs\": {\"question\": \"Which state\
+          \ had the highest salmonellosis notifications in 2022?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"salmonellosis\"], \"question_type\": \"data_retrieval\"\
+          }},\n        {\"inputs\": {\"question\": \"Compare influenza and pneumococcal\
+          \ disease notification trends over the past 5 years\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"influenza\", \"pneumococcal\"], \"question_type\"\
+          : \"cross_dataset\"}},\n        {\"inputs\": {\"question\": \"What is the\
+          \ meningococcal disease rate per 100,000 in Victoria?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"per 100,000\", \"population\"], \"question_type\"\
+          : \"scope_boundary\"}},\n        {\"inputs\": {\"question\": \"Does vaccination\
+          \ cause the decline in pertussis notifications?\"}, \"expectations\": {\"\
+          expected_keywords\": [\"cannot\", \"causal\"], \"question_type\": \"scope_boundary\"\
+          , \"forbidden_content\": [\"yes, vaccination causes\"]}},\n        {\"inputs\"\
+          : {\"question\": \"What are the influenza notifications in the Sydney LGA?\"\
+          }, \"expectations\": {\"expected_keywords\": [\"state\", \"territory\"],\
+          \ \"question_type\": \"geographic_resolution\"}},\n        {\"inputs\":\
+          \ {\"question\": \"How does NNDSS collect influenza data compared to sentinel\
+          \ surveillance?\"}, \"expectations\": {\"expected_keywords\": [\"passive\"\
+          , \"surveillance\"], \"question_type\": \"methodology_comparison\"}},\n\
+          \        {\"inputs\": {\"question\": \"What food poisoning cases were reported\
+          \ in Queensland last year?\"}, \"expectations\": {\"expected_keywords\"\
           : [\"salmonellosis\"], \"question_type\": \"data_retrieval\"}},\n      \
           \  {\"inputs\": {\"question\": \"Should I get vaccinated against meningococcal\
           \ disease based on the notification data?\"}, \"expectations\": {\"expected_keywords\"\
@@ -186,6 +215,186 @@ deploymentSpec:
           DatasetOutput\", [(\"experiment_name\", str), (\"dataset_id\", str)])\n\
           \    return DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)\n\
           \n"
+        image: python:3.12-slim
+    exec-generate-variants-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - generate_variants_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow>=3.10'\
+          \ 'nest-asyncio>=1.6.0' 'pydantic>=2.0.0' 'httpx>=0.27.0' 'sdg-hub>=0.7.0,<1.0'\
+          \ 'pandas>=2.0' 'pyyaml>=6.0'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.1' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef generate_variants_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
+          \ str,\n    dataset_id: str,\n    llm_base_url: str,\n    gen_model: str,\n\
+          \    variants_per_seed: int = 3,\n    mlflow_workspace: str = \"\",\n) ->\
+          \ NamedTuple(\"GenOutput\", [(\"experiment_name\", str), (\"dataset_id\"\
+          , str)]):\n    \"\"\"Generate question variants from seeds using SDG Hub.\"\
+          \"\"\n    import os\n    import sys\n    import json\n    import tempfile\n\
+          \    from typing import NamedTuple\n    from pathlib import Path\n\n   \
+          \ os.environ[\"PYTHONUNBUFFERED\"] = \"1\"\n    sys.stdout.reconfigure(line_buffering=True)\n\
+          \    os.environ[\"MLFLOW_TRACKING_INSECURE_TLS\"] = \"true\"\n\n    if not\
+          \ os.environ.get(\"MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path = Path(\"\
+          /var/run/secrets/kubernetes.io/serviceaccount/token\")\n        if sa_token_path.exists():\n\
+          \            os.environ[\"MLFLOW_TRACKING_TOKEN\"] = sa_token_path.read_text().strip()\n\
+          \n    import mlflow\n    from mlflow.genai.datasets import get_dataset\n\
+          \n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n    if mlflow_workspace:\n\
+          \        mlflow.set_workspace(mlflow_workspace)\n        import mlflow.tracking.fluent\
+          \ as _fluent\n        client = mlflow.MlflowClient()\n        exps = client.search_experiments(filter_string=f\"\
+          name = '{experiment_name}'\")\n        if exps:\n            _fluent._active_experiment_id\
+          \ = exps[0].experiment_id\n    else:\n        mlflow.set_experiment(experiment_name)\n\
+          \n    dataset = get_dataset(dataset_id=dataset_id)\n    df = dataset.to_df()\n\
+          \    seed_count = len(df)\n    print(f\"Seeds: {seed_count} questions\"\
+          , flush=True)\n\n    import pandas as pd\n    seeds = []\n    for _, row\
+          \ in df.iterrows():\n        inputs = row.get(\"inputs\", {})\n        expectations\
+          \ = row.get(\"expectations\", {})\n        if isinstance(inputs, str):\n\
+          \            inputs = json.loads(inputs)\n        if isinstance(expectations,\
+          \ str):\n            expectations = json.loads(expectations)\n        seeds.append({\n\
+          \            \"question\": inputs.get(\"question\", \"\"),\n           \
+          \ \"question_type\": expectations.get(\"question_type\", \"data_retrieval\"\
+          ),\n            \"expected_keywords\": json.dumps(expectations.get(\"expected_keywords\"\
+          , [])),\n        })\n    seed_df = pd.DataFrame(seeds)\n\n    # api_base\
+          \ must include /v1 for litellm (used by SDG Hub)\n    gen_base = llm_base_url.rstrip(\"\
+          /\")\n    if not gen_base.endswith(\"/v1\"):\n        gen_base = gen_base\
+          \ + \"/v1\"\n    api_key = os.environ.get(\"OPENAI_API_KEY\", \"\")\n\n\
+          \    # Create SDG Hub flow and prompt files in temp directory\n    work_dir\
+          \ = Path(tempfile.mkdtemp())\n    prompts_dir = work_dir / \"prompts\"\n\
+          \    prompts_dir.mkdir()\n\n    prompt_yaml = prompts_dir / \"question_gen.yaml\"\
+          \n    import yaml as _yaml\n    prompt_config = [\n        {\n         \
+          \   \"role\": \"system\",\n            \"content\": (\n                \"\
+          You are an expert in Australian disease surveillance data. Generate evaluation\
+          \ \"\n                \"questions for testing an NNDSS data agent.\\n\\\
+          n\"\n                \"Available diseases: Influenza (laboratory confirmed),\
+          \ Invasive meningococcal \"\n                \"disease, Invasive pneumococcal\
+          \ disease, Salmonellosis.\\n\"\n                \"States: ACT, NSW, NT,\
+          \ QLD, SA, TAS, VIC, WA.\\n\"\n                \"Data years: 2008-2025 (annual),\
+          \ 2024-2026 (fortnightly).\\n\\n\"\n                \"Question types: data_retrieval,\
+          \ cross_dataset, scope_boundary, \"\n                \"geographic_resolution,\
+          \ methodology_comparison.\"\n            ),\n        },\n        {\n   \
+          \         \"role\": \"user\",\n            \"content\": (\n            \
+          \    \"{{ question_type }} question variant generation.\\n\\n\"\n      \
+          \          \"Seed: {{ question }}\\n\"\n                \"Expected keywords:\
+          \ {{ expected_keywords }}\\n\\n\"\n                \"Generate exactly 3\
+          \ variant questions testing the same capability \"\n                \"but\
+          \ with different disease, state, or year. For scope_boundary \"\n      \
+          \          \"questions, create new out-of-scope questions.\\n\\n\"\n   \
+          \             'Respond with a JSON object containing a \"variants\" array.\
+          \ '\n                'Each variant needs: \"question\" (string), \"question_type\"\
+          \ (string), '\n                '\"expected_keywords\" (array of strings).\
+          \ No markdown, only valid JSON.'\n            ),\n        },\n    ]\n  \
+          \  with open(prompt_yaml, \"w\") as f:\n        _yaml.dump(prompt_config,\
+          \ f, default_flow_style=False)\n\n    flow_def = {\n        \"metadata\"\
+          : {\n            \"name\": \"NNDSS Question Variant Generator\",\n     \
+          \       \"version\": \"1.0.0\",\n            \"dataset_requirements\": {\n\
+          \                \"required_columns\": [\"question\", \"question_type\"\
+          , \"expected_keywords\"]\n            },\n        },\n        \"blocks\"\
+          : [\n            {\n                \"block_type\": \"PromptBuilderBlock\"\
+          ,\n                \"block_config\": {\n                    \"block_name\"\
+          : \"build_prompt\",\n                    \"input_cols\": {\n           \
+          \             \"question\": \"question\",\n                        \"question_type\"\
+          : \"question_type\",\n                        \"expected_keywords\": \"\
+          expected_keywords\",\n                    },\n                    \"output_cols\"\
+          : \"gen_messages\",\n                    \"prompt_config_path\": str(prompt_yaml),\n\
+          \                },\n            },\n            {\n                \"block_type\"\
+          : \"LLMChatBlock\",\n                \"block_config\": {\n             \
+          \       \"block_name\": \"generate\",\n                    \"input_cols\"\
+          : \"gen_messages\",\n                    \"output_cols\": \"gen_response\"\
+          ,\n                    \"async_mode\": True,\n                    \"temperature\"\
+          : 0.7,\n                    \"max_tokens\": 1024,\n                },\n\
+          \            },\n            {\n                \"block_type\": \"LLMResponseExtractorBlock\"\
+          ,\n                \"block_config\": {\n                    \"block_name\"\
+          : \"extract\",\n                    \"input_cols\": \"gen_response\",\n\
+          \                    \"field_prefix\": \"gen_\",\n                    \"\
+          extract_content\": True,\n                },\n            },\n        ],\n\
+          \    }\n    flow_yaml_path = work_dir / \"question_gen_flow.yaml\"\n   \
+          \ with open(flow_yaml_path, \"w\") as f:\n        _yaml.dump(flow_def, f)\n\
+          \n    all_variants = []\n\n    try:\n        from sdg_hub.core.flow import\
+          \ Flow\n        from pydantic import SecretStr\n\n        flow = Flow.from_yaml(str(flow_yaml_path))\n\
+          \n        flow.set_model_config(\n            model=f\"openai/{gen_model}\"\
+          ,\n            api_key=SecretStr(api_key),\n            api_base=gen_base,\n\
+          \        )\n\n        print(f\"Running SDG Hub flow with model {gen_model}\
+          \ via {gen_base}...\", flush=True)\n        result_df = flow.generate(\n\
+          \            seed_df,\n            runtime_params={\n                \"\
+          generate\": {\n                    \"api_key\": SecretStr(api_key),\n  \
+          \                  \"api_base\": gen_base,\n                    \"model\"\
+          : f\"openai/{gen_model}\",\n                }\n            },\n        \
+          \    max_concurrency=2,\n        )\n        print(f\"SDG Hub output: {len(result_df)}\
+          \ rows, columns: {list(result_df.columns)}\", flush=True)\n\n        content_col\
+          \ = None\n        for col in result_df.columns:\n            if \"content\"\
+          \ in col.lower():\n                content_col = col\n                break\n\
+          \n        if content_col:\n            for _, row in result_df.iterrows():\n\
+          \                try:\n                    raw = row[content_col]\n    \
+          \                parsed = json.loads(raw) if isinstance(raw, str) else raw\n\
+          \                    for v in parsed.get(\"variants\", [])[:variants_per_seed]:\n\
+          \                        q = v.get(\"question\", \"\")\n               \
+          \         if q:\n                            all_variants.append({\n   \
+          \                             \"inputs\": {\"question\": q},\n         \
+          \                       \"expectations\": {\n                          \
+          \          \"expected_keywords\": v.get(\"expected_keywords\", []),\n  \
+          \                                  \"question_type\": v.get(\"question_type\"\
+          , \"data_retrieval\"),\n                                    \"forbidden_content\"\
+          : v.get(\"forbidden_content\", []),\n                                },\n\
+          \                            })\n                except Exception as e:\n\
+          \                    print(f\"  Parse error: {e}\", flush=True)\n\n    \
+          \    print(f\"Generated {len(all_variants)} variant questions via SDG Hub\"\
+          , flush=True)\n\n    except Exception as e:\n        print(f\"SDG Hub error:\
+          \ {e}\", flush=True)\n        print(\"Falling back to direct HTTP generation...\"\
+          , flush=True)\n        import httpx\n        url = f\"{gen_base}/chat/completions\"\
+          \n        for seed in seeds:\n            prompt = (\n                f\"\
+          Generate {variants_per_seed} variant evaluation questions for an Australian\
+          \ disease surveillance agent.\\n\\n\"\n                f\"Seed: {seed['question']}\\\
+          nType: {seed['question_type']}\\n\\n\"\n                f\"Change the disease,\
+          \ state, or year while keeping the same question type.\\n\\n\"\n       \
+          \         f\"Respond with a JSON object containing a \\\"variants\\\" array.\
+          \ \"\n                f\"Each variant needs: \\\"question\\\", \\\"question_type\\\
+          \", \\\"expected_keywords\\\". No markdown.\"\n            )\n         \
+          \   try:\n                r = httpx.post(url, json={\n                 \
+          \   \"model\": gen_model,\n                    \"messages\": [{\"role\"\
+          : \"user\", \"content\": prompt}],\n                    \"temperature\"\
+          : 0.7, \"max_tokens\": 1024,\n                }, headers={\"Authorization\"\
+          : f\"Bearer {api_key}\", \"Content-Type\": \"application/json\"}, timeout=30)\n\
+          \                r.raise_for_status()\n                content = r.json()[\"\
+          choices\"][0][\"message\"][\"content\"]\n                clean = content.strip()\n\
+          \                if clean.startswith(\"```\"):\n                    lines\
+          \ = clean.split(\"\\n\")\n                    lines = [l for l in lines\
+          \ if not l.strip().startswith(\"```\")]\n                    clean = \"\\\
+          n\".join(lines)\n                parsed = json.loads(clean)\n          \
+          \      for v in parsed.get(\"variants\", [])[:variants_per_seed]:\n    \
+          \                q = v.get(\"question\", \"\")\n                    if q:\n\
+          \                        all_variants.append({\n                       \
+          \     \"inputs\": {\"question\": q},\n                            \"expectations\"\
+          : {\n                                \"expected_keywords\": v.get(\"expected_keywords\"\
+          , []),\n                                \"question_type\": v.get(\"question_type\"\
+          , seed[\"question_type\"]),\n                            },\n          \
+          \              })\n            except Exception as ex:\n               \
+          \ print(f\"  HTTP error for '{seed['question'][:40]}': {ex}\", flush=True)\n\
+          \        print(f\"Generated {len(all_variants)} variant questions via HTTP\
+          \ fallback\", flush=True)\n\n    if all_variants:\n        dataset = dataset.merge_records(all_variants)\n\
+          \        total = len(dataset.to_df())\n        print(f\"Dataset: {seed_count}\
+          \ seeds + {len(all_variants)} variants = {total} total\", flush=True)\n\
+          \    else:\n        print(\"No variants generated, using seeds only\", flush=True)\n\
+          \n    GenOutput = NamedTuple(\"GenOutput\", [(\"experiment_name\", str),\
+          \ (\"dataset_id\", str)])\n    return GenOutput(experiment_name=experiment_name,\
+          \ dataset_id=dataset.dataset_id)\n\n"
         image: python:3.12-slim
     exec-report-results-op:
       container:
@@ -263,8 +472,8 @@ deploymentSpec:
           \    from pathlib import Path\n\n    os.environ[\"PYTHONUNBUFFERED\"] =\
           \ \"1\"\n    sys.stdout.reconfigure(line_buffering=True)\n    sys.stderr.reconfigure(line_buffering=True)\n\
           \n    warnings.filterwarnings(\"ignore\")\n    os.environ[\"MLFLOW_TRACKING_INSECURE_TLS\"\
-          ] = \"true\"\n    os.environ[\"MLFLOW_GENAI_EVAL_MAX_WORKERS\"] = \"1\"\n\
-          \    os.environ[\"MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS\"] = \"1\"\n    os.environ[\"\
+          ] = \"true\"\n    os.environ[\"MLFLOW_GENAI_EVAL_MAX_WORKERS\"] = \"2\"\n\
+          \    os.environ[\"MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS\"] = \"2\"\n    os.environ[\"\
           MLFLOW_GENAI_EVAL_MAX_RETRIES\"] = \"3\"\n    os.environ[\"MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION\"\
           ] = \"True\"\n    os.environ[\"TRINO_QUERY_HOST\"] = trino_host\n    os.environ[\"\
           TRINO_QUERY_PORT\"] = str(trino_port)\n    # Build judge chat/completions\
@@ -388,39 +597,47 @@ deploymentSpec:
           : {\"chat_template_kwargs\": {\"enable_thinking\": False}}},\n    )\n  \
           \  # Load prompt from MLflow registry \u2014 links eval run to prompt version\n\
           \    prompt_name = \"nndss-agent.system\"\n    system_prompt = None\n  \
-          \  try:\n        prompt_obj = mlflow.genai.load_prompt(\n            f\"\
-          prompts:/{prompt_name}@production\",\n            allow_missing=True,\n\
+          \  prompt_version = \"unknown\"\n    try:\n        prompt_obj = mlflow.genai.load_prompt(\n\
+          \            f\"prompts:/{prompt_name}@production\",\n            allow_missing=True,\n\
           \        )\n        if prompt_obj:\n            system_prompt = prompt_obj.template\n\
-          \            print(f\"Loaded prompt: {prompt_name} v{prompt_obj.version}\
-          \ ({len(system_prompt)} chars)\", flush=True)\n    except Exception as e:\n\
-          \        print(f\"Could not load prompt from MLflow: {e}\", flush=True)\n\
-          \n    if not system_prompt:\n        print(\"Using fallback prompt (not\
-          \ registered in MLflow)\", flush=True)\n        system_prompt = (\n    \
-          \        \"You are an Australian disease surveillance data agent. \"\n \
-          \           \"Use query_trino to execute SQL against the NNDSS Iceberg lakehouse.\
-          \ \"\n            \"Table: lakehouse.nndss.notifications (year INT, state\
-          \ VARCHAR, disease VARCHAR, notifications INT). \"\n            \"Diseases:\
-          \ 'Influenza (laboratory confirmed)', 'Invasive meningococcal disease',\
-          \ 'Invasive pneumococcal disease', 'Salmonellosis'. \"\n            \"Table:\
-          \ lakehouse.nndss.population (year INT, state VARCHAR, population INT) for\
-          \ per-capita rates. \"\n            \"Always include Data Confidence (HIGH/MODERATE/LOW)\
-          \ and Data Freshness in your response. \"\n            \"Notifications are\
-          \ laboratory-confirmed cases from passive surveillance, not total infections.\"\
-          \n        )\n\n    agent = create_react_agent(\n        model=agent_llm,\n\
-          \        tools=[query_trino, describe_datasets, get_methodology],\n    \
-          \    prompt=system_prompt,\n    )\n\n    _q_count = [0]\n\n    def predict_fn(question:\
-          \ str) -> str:\n        _q_count[0] += 1\n        print(f\"[predict {_q_count[0]}]\
-          \ Q: {question[:80]}...\", flush=True)\n        try:\n            result\
-          \ = agent.invoke({\"messages\": [HumanMessage(content=question)]})\n   \
-          \         for m in reversed(result.get(\"messages\", [])):\n           \
-          \     if hasattr(m, \"type\") and m.type == \"ai\" and not getattr(m, \"\
-          tool_calls\", None):\n                    answer = m.content or \"\"\n \
-          \                   print(f\"[predict {_q_count[0]}] A: {len(answer)} chars\"\
-          , flush=True)\n                    return answer\n            print(f\"\
-          [predict {_q_count[0]}] No AI response found\", flush=True)\n          \
-          \  return \"No response\"\n        except Exception as e:\n            print(f\"\
-          [predict {_q_count[0]}] Error: {e}\", flush=True)\n            return f\"\
-          Error: {e}\"\n\n    # -------------------------------------------------------------------------\n\
+          \            prompt_version = str(prompt_obj.version)\n            print(f\"\
+          Loaded prompt: {prompt_name} v{prompt_version} ({len(system_prompt)} chars)\"\
+          , flush=True)\n            mlflow.log_param(\"prompt_name\", prompt_name)\n\
+          \            mlflow.log_param(\"prompt_version\", prompt_version)\n    except\
+          \ Exception as e:\n        print(f\"Could not load prompt from MLflow: {e}\"\
+          , flush=True)\n\n    if not system_prompt:\n        print(\"Using fallback\
+          \ prompt (not registered in MLflow)\", flush=True)\n        system_prompt\
+          \ = (\n            \"You are an Australian disease surveillance data agent.\
+          \ \"\n            \"Use query_trino to execute SQL against the NNDSS Iceberg\
+          \ lakehouse. \"\n            \"Table: lakehouse.nndss.notifications (year\
+          \ INT, state VARCHAR, disease VARCHAR, notifications INT). \"\n        \
+          \    \"Diseases: 'Influenza (laboratory confirmed)', 'Invasive meningococcal\
+          \ disease', 'Invasive pneumococcal disease', 'Salmonellosis'. \"\n     \
+          \       \"Table: lakehouse.nndss.population (year INT, state VARCHAR, population\
+          \ INT) for per-capita rates. \"\n            \"Always include Data Confidence\
+          \ (HIGH/MODERATE/LOW) and Data Freshness in your response. \"\n        \
+          \    \"Notifications are laboratory-confirmed cases from passive surveillance,\
+          \ not total infections.\"\n        )\n\n    agent = create_react_agent(\n\
+          \        model=agent_llm,\n        tools=[query_trino, describe_datasets,\
+          \ get_methodology],\n        prompt=system_prompt,\n    )\n\n    _q_count\
+          \ = [0]\n\n    def predict_fn(question: str) -> str:\n        _q_count[0]\
+          \ += 1\n        print(f\"[predict {_q_count[0]}] Q: {question[:80]}...\"\
+          , flush=True)\n        try:\n            with mlflow.start_span(name=\"\
+          nndss_agent_eval\") as span:\n                span.set_inputs({\"question\"\
+          : question[:200]})\n                mlflow.genai.load_prompt(\n        \
+          \            f\"prompts:/{prompt_name}@production\",\n                 \
+          \   allow_missing=True,\n                    cache_ttl_seconds=300,\n  \
+          \              )\n                result = agent.invoke({\"messages\": [HumanMessage(content=question)]})\n\
+          \                for m in reversed(result.get(\"messages\", [])):\n    \
+          \                if hasattr(m, \"type\") and m.type == \"ai\" and not getattr(m,\
+          \ \"tool_calls\", None):\n                        answer = m.content or\
+          \ \"\"\n                        span.set_outputs({\"answer_length\": len(answer)})\n\
+          \                        print(f\"[predict {_q_count[0]}] A: {len(answer)}\
+          \ chars\", flush=True)\n                        return answer\n        \
+          \    print(f\"[predict {_q_count[0]}] No AI response found\", flush=True)\n\
+          \            return \"No response\"\n        except Exception as e:\n  \
+          \          print(f\"[predict {_q_count[0]}] Error: {e}\", flush=True)\n\
+          \            return f\"Error: {e}\"\n\n    # -------------------------------------------------------------------------\n\
           \    # Run evaluation\n    # -------------------------------------------------------------------------\n\
           \    dataset = get_dataset(dataset_id=dataset_id)\n    print(f\"Dataset:\
           \ {dataset.name} | Records: {len(dataset.to_df())}\", flush=True)\n    print(f\"\
@@ -509,6 +726,35 @@ root:
               componentInputParameter: mlflow_workspace
         taskInfo:
           name: create-dataset-op
+      generate-variants-op:
+        cachingOptions: {}
+        componentRef:
+          name: comp-generate-variants-op
+        dependentTasks:
+        - create-dataset-op
+        inputs:
+          parameters:
+            dataset_id:
+              taskOutputParameter:
+                outputParameterKey: dataset_id
+                producerTask: create-dataset-op
+            experiment_name:
+              taskOutputParameter:
+                outputParameterKey: experiment_name
+                producerTask: create-dataset-op
+            gen_model:
+              componentInputParameter: judge_model
+            llm_base_url:
+              componentInputParameter: llm_base_url
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
+            variants_per_seed:
+              runtimeValue:
+                constant: 3.0
+        taskInfo:
+          name: generate-variants-op
       report-results-op:
         cachingOptions:
           enableCache: true
@@ -527,12 +773,11 @@ root:
         taskInfo:
           name: report-results-op
       run-eval-op:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-run-eval-op
         dependentTasks:
-        - create-dataset-op
+        - generate-variants-op
         inputs:
           parameters:
             agent_model:
@@ -540,11 +785,11 @@ root:
             dataset_id:
               taskOutputParameter:
                 outputParameterKey: dataset_id
-                producerTask: create-dataset-op
+                producerTask: generate-variants-op
             experiment_name:
               taskOutputParameter:
                 outputParameterKey: experiment_name
-                producerTask: create-dataset-op
+                producerTask: generate-variants-op
             judge_model:
               componentInputParameter: judge_model
             llm_base_url:
@@ -623,6 +868,14 @@ platforms:
   kubernetes:
     deploymentSpec:
       executors:
+        exec-generate-variants-op:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: OPENAI_API_KEY
+              secretKey: api-key
+            optional: false
+            secretNameParameter:
+              componentInputParameter: llm_secret_name
         exec-run-eval-op:
           secretAsEnv:
           - keyToEnv:

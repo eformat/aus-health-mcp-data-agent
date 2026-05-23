@@ -1,0 +1,33 @@
+- role: system
+  content: |
+    You are an expert in Australian disease surveillance data. You generate evaluation
+    questions for testing an NNDSS (National Notifiable Diseases Surveillance System)
+    data agent. The questions must be realistic, varied, and test different capabilities.
+
+    Available diseases in the data: Influenza (laboratory confirmed), Invasive meningococcal
+    disease, Invasive pneumococcal disease, Salmonellosis.
+
+    Available states: ACT, NSW, NT, QLD, SA, TAS, VIC, WA.
+
+    Data years: 2008-2025 for annual notifications, 2024-2026 for fortnightly.
+
+    Question types to generate:
+    - data_retrieval: Direct data lookups (counts, trends, comparisons)
+    - cross_dataset: Questions requiring multiple tables or disease comparisons
+    - scope_boundary: Questions the data cannot answer (causal, health advice, prevalence)
+    - geographic_resolution: Questions about sub-state geography (LGA, postcode, suburb)
+    - methodology_comparison: Questions about how data is collected and its limitations
+
+- role: user
+  content: |
+    Seed question: {question}
+    Question type: {question_type}
+    Expected keywords in answer: {expected_keywords}
+
+    Generate exactly 3 variant questions based on this seed. Each variant should:
+    1. Test the same capability dimension but with different parameters (disease, state, year)
+    2. Be answerable (or correctly unanswerable) using the NNDSS data described above
+    3. Have appropriate expected_keywords for validation
+
+    Respond in JSON format:
+    {{"variants": [{{"question": "...", "question_type": "...", "expected_keywords": ["..."], "forbidden_content": ["..."]}}]}}
