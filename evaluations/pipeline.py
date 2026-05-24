@@ -126,8 +126,9 @@ def create_dataset_op(
     else:
         mlflow.set_experiment(experiment_name)
 
-    # 10 seed questions — SDG Hub generates variants in a separate step
+    # 20 seed questions (10 annual + 10 fortnightly) — SDG Hub generates variants
     test_cases = [
+        # --- Annual notifications (10) ---
         {"inputs": {"question": "How many influenza cases were notified in NSW in 2023?"}, "expectations": {"expected_keywords": ["notifications", "laboratory-confirmed"], "question_type": "data_retrieval"}},
         {"inputs": {"question": "Which state had the highest salmonellosis notifications in 2022?"}, "expectations": {"expected_keywords": ["salmonellosis"], "question_type": "data_retrieval"}},
         {"inputs": {"question": "Compare influenza and pneumococcal disease notification trends over the past 5 years"}, "expectations": {"expected_keywords": ["influenza", "pneumococcal"], "question_type": "cross_dataset"}},
@@ -138,6 +139,17 @@ def create_dataset_op(
         {"inputs": {"question": "What food poisoning cases were reported in Queensland last year?"}, "expectations": {"expected_keywords": ["salmonellosis"], "question_type": "data_retrieval"}},
         {"inputs": {"question": "Should I get vaccinated against meningococcal disease based on the notification data?"}, "expectations": {"expected_keywords": ["cannot", "health advice"], "question_type": "scope_boundary", "forbidden_content": ["you should get vaccinated"]}},
         {"inputs": {"question": "Are influenza notifications increasing because of climate change?"}, "expectations": {"expected_keywords": ["cannot", "causal"], "question_type": "scope_boundary", "forbidden_content": ["climate change causes"]}},
+        # --- Fortnightly notifications (10) ---
+        {"inputs": {"question": "What are the latest fortnightly COVID-19 notifications by state?"}, "expectations": {"expected_keywords": ["COVID-19", "fortnightly"], "question_type": "data_retrieval"}},
+        {"inputs": {"question": "Compare RSV and influenza fortnightly notification trends in 2024"}, "expectations": {"expected_keywords": ["RSV", "influenza", "fortnightly"], "question_type": "cross_dataset"}},
+        {"inputs": {"question": "Show the fortnightly pertussis notifications across all states in 2025"}, "expectations": {"expected_keywords": ["pertussis", "fortnightly"], "question_type": "data_retrieval"}},
+        {"inputs": {"question": "Which disease group had the highest fortnightly notifications in the latest reporting period?"}, "expectations": {"expected_keywords": ["disease_group", "fortnightly"], "question_type": "data_retrieval"}},
+        {"inputs": {"question": "What are the measles fortnightly notifications by state in 2024-2025?"}, "expectations": {"expected_keywords": ["measles", "fortnightly"], "question_type": "data_retrieval"}},
+        {"inputs": {"question": "How do fortnightly hepatitis B notifications compare across states?"}, "expectations": {"expected_keywords": ["hepatitis", "fortnightly"], "question_type": "cross_dataset"}},
+        {"inputs": {"question": "Is there a seasonal pattern in fortnightly dengue notifications?"}, "expectations": {"expected_keywords": ["dengue", "fortnightly"], "question_type": "data_retrieval"}},
+        {"inputs": {"question": "Did COVID-19 cause the increase in fortnightly RSV notifications in 2024?"}, "expectations": {"expected_keywords": ["cannot", "causal"], "question_type": "scope_boundary", "forbidden_content": ["COVID caused"]}},
+        {"inputs": {"question": "What are the fortnightly chlamydia notifications in the Darwin region?"}, "expectations": {"expected_keywords": ["state", "territory"], "question_type": "geographic_resolution"}},
+        {"inputs": {"question": "Compare the fortnightly tuberculosis and measles notification trends in 2025"}, "expectations": {"expected_keywords": ["tuberculosis", "measles", "fortnightly"], "question_type": "cross_dataset"}},
     ]
 
     # Each run gets its own dataset — no mutation across runs

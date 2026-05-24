@@ -105,20 +105,19 @@ def _clean_output(text: str) -> tuple[str, str]:
 @cl.set_starters
 async def starters():
     return [
-        cl.Starter(label="What diseases are available?",
-                    message="What notifiable diseases do you have data for?"),
-        cl.Starter(label="Influenza in NSW 2023",
-                    message="How many influenza cases were notified in NSW in 2023?"),
-        cl.Starter(label="Highest salmonellosis state",
-                    message="Which state had the highest salmonellosis notifications in 2022?"),
-        cl.Starter(label="Healthiest state per-capita",
-                    message="What is the healthiest state to live in per-capita?"),
-        cl.Starter(label="Compare disease trends",
-                    message="Compare influenza and pneumococcal disease trends over the past 5 years"),
-        cl.Starter(label="Food poisoning in QLD",
-                    message="What food poisoning cases were reported in Queensland last year?"),
-        cl.Starter(label="Meningococcal national trend",
-                    message="Show the national trend for meningococcal disease notifications from 2015 to 2024"),
+        # Annual notifications
+        cl.Starter(label="Available diseases", message="What notifiable diseases do you have data for?"),
+        cl.Starter(label="Influenza in NSW 2023", message="How many influenza cases were notified in NSW in 2023?"),
+        cl.Starter(label="Compare disease trends", message="Compare influenza and pneumococcal disease trends over the past 5 years"),
+        cl.Starter(label="Food poisoning in QLD", message="What food poisoning cases were reported in Queensland last year?"),
+        cl.Starter(label="Per-capita rates by state", message="Which state had the highest influenza notification rate per 100,000 in 2023?"),
+        cl.Starter(label="Meningococcal national trend", message="Show the national trend for meningococcal disease notifications from 2015 to 2024"),
+        # Fortnightly notifications
+        cl.Starter(label="Latest COVID-19 fortnightly", message="What are the latest fortnightly COVID-19 notifications by state?"),
+        cl.Starter(label="RSV vs Influenza 2024", message="Compare RSV and influenza fortnightly notification trends in 2024"),
+        cl.Starter(label="Pertussis outbreak 2025", message="Show the fortnightly pertussis notifications across all states in 2025"),
+        cl.Starter(label="Measles fortnightly by state", message="What are the measles fortnightly notifications by state in 2024-2025?"),
+        cl.Starter(label="Top respiratory diseases", message="Which respiratory diseases had the highest fortnightly notifications in the latest period?"),
     ]
 
 
@@ -208,7 +207,7 @@ async def on_message(message: cl.Message):
                 config={"callbacks": [handler]},
             )
 
-    async with cl.Step(name="Querying NNDSS data...", type="run") as step:
+    async with cl.Step(name="Query NNDSS data...", type="run") as step:
         result = await asyncio.get_event_loop().run_in_executor(None, _run_agent)
         if handler.tool_names:
             step.output = "Tools called: " + ", ".join(handler.tool_names)

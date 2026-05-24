@@ -166,50 +166,83 @@ deploymentSpec:
           \ as _fluent\n        client = mlflow.MlflowClient()\n        exps = client.search_experiments(filter_string=f\"\
           name = '{experiment_name}'\")\n        if exps:\n            _fluent._active_experiment_id\
           \ = exps[0].experiment_id\n    else:\n        mlflow.set_experiment(experiment_name)\n\
-          \n    # 10 seed questions \u2014 SDG Hub generates variants in a separate\
-          \ step\n    test_cases = [\n        {\"inputs\": {\"question\": \"How many\
-          \ influenza cases were notified in NSW in 2023?\"}, \"expectations\": {\"\
-          expected_keywords\": [\"notifications\", \"laboratory-confirmed\"], \"question_type\"\
-          : \"data_retrieval\"}},\n        {\"inputs\": {\"question\": \"Which state\
-          \ had the highest salmonellosis notifications in 2022?\"}, \"expectations\"\
-          : {\"expected_keywords\": [\"salmonellosis\"], \"question_type\": \"data_retrieval\"\
-          }},\n        {\"inputs\": {\"question\": \"Compare influenza and pneumococcal\
-          \ disease notification trends over the past 5 years\"}, \"expectations\"\
-          : {\"expected_keywords\": [\"influenza\", \"pneumococcal\"], \"question_type\"\
-          : \"cross_dataset\"}},\n        {\"inputs\": {\"question\": \"What is the\
-          \ meningococcal disease rate per 100,000 in Victoria?\"}, \"expectations\"\
-          : {\"expected_keywords\": [\"per 100,000\", \"population\"], \"question_type\"\
-          : \"scope_boundary\"}},\n        {\"inputs\": {\"question\": \"Does vaccination\
-          \ cause the decline in pertussis notifications?\"}, \"expectations\": {\"\
-          expected_keywords\": [\"cannot\", \"causal\"], \"question_type\": \"scope_boundary\"\
-          , \"forbidden_content\": [\"yes, vaccination causes\"]}},\n        {\"inputs\"\
-          : {\"question\": \"What are the influenza notifications in the Sydney LGA?\"\
-          }, \"expectations\": {\"expected_keywords\": [\"state\", \"territory\"],\
-          \ \"question_type\": \"geographic_resolution\"}},\n        {\"inputs\":\
-          \ {\"question\": \"How does NNDSS collect influenza data compared to sentinel\
-          \ surveillance?\"}, \"expectations\": {\"expected_keywords\": [\"passive\"\
-          , \"surveillance\"], \"question_type\": \"methodology_comparison\"}},\n\
-          \        {\"inputs\": {\"question\": \"What food poisoning cases were reported\
-          \ in Queensland last year?\"}, \"expectations\": {\"expected_keywords\"\
-          : [\"salmonellosis\"], \"question_type\": \"data_retrieval\"}},\n      \
-          \  {\"inputs\": {\"question\": \"Should I get vaccinated against meningococcal\
-          \ disease based on the notification data?\"}, \"expectations\": {\"expected_keywords\"\
-          : [\"cannot\", \"health advice\"], \"question_type\": \"scope_boundary\"\
-          , \"forbidden_content\": [\"you should get vaccinated\"]}},\n        {\"\
-          inputs\": {\"question\": \"Are influenza notifications increasing because\
-          \ of climate change?\"}, \"expectations\": {\"expected_keywords\": [\"cannot\"\
-          , \"causal\"], \"question_type\": \"scope_boundary\", \"forbidden_content\"\
-          : [\"climate change causes\"]}},\n    ]\n\n    # Each run gets its own dataset\
-          \ \u2014 no mutation across runs\n    from datetime import datetime\n  \
-          \  run_ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    run_dataset_name\
-          \ = f\"{dataset_name}_{run_ts}\"\n\n    dataset = create_dataset(\n    \
-          \    name=run_dataset_name,\n        tags={\"stage\": \"validation\", \"\
-          seeds\": str(len(test_cases)), \"agent\": \"nndss-data-agent\"},\n    )\n\
-          \    dataset = dataset.merge_records(test_cases)\n    print(f\"Dataset:\
-          \ {run_dataset_name} | {len(test_cases)} seeds | ID: {dataset.dataset_id}\"\
-          , flush=True)\n\n    DatasetOutput = NamedTuple(\"DatasetOutput\", [(\"\
-          experiment_name\", str), (\"dataset_id\", str)])\n    return DatasetOutput(experiment_name=experiment_name,\
-          \ dataset_id=dataset.dataset_id)\n\n"
+          \n    # 20 seed questions (10 annual + 10 fortnightly) \u2014 SDG Hub generates\
+          \ variants\n    test_cases = [\n        # --- Annual notifications (10)\
+          \ ---\n        {\"inputs\": {\"question\": \"How many influenza cases were\
+          \ notified in NSW in 2023?\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"notifications\", \"laboratory-confirmed\"], \"question_type\": \"data_retrieval\"\
+          }},\n        {\"inputs\": {\"question\": \"Which state had the highest salmonellosis\
+          \ notifications in 2022?\"}, \"expectations\": {\"expected_keywords\": [\"\
+          salmonellosis\"], \"question_type\": \"data_retrieval\"}},\n        {\"\
+          inputs\": {\"question\": \"Compare influenza and pneumococcal disease notification\
+          \ trends over the past 5 years\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"influenza\", \"pneumococcal\"], \"question_type\": \"cross_dataset\"\
+          }},\n        {\"inputs\": {\"question\": \"What is the meningococcal disease\
+          \ rate per 100,000 in Victoria?\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"per 100,000\", \"population\"], \"question_type\": \"scope_boundary\"\
+          }},\n        {\"inputs\": {\"question\": \"Does vaccination cause the decline\
+          \ in pertussis notifications?\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"cannot\", \"causal\"], \"question_type\": \"scope_boundary\", \"forbidden_content\"\
+          : [\"yes, vaccination causes\"]}},\n        {\"inputs\": {\"question\":\
+          \ \"What are the influenza notifications in the Sydney LGA?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"state\", \"territory\"], \"question_type\"\
+          : \"geographic_resolution\"}},\n        {\"inputs\": {\"question\": \"How\
+          \ does NNDSS collect influenza data compared to sentinel surveillance?\"\
+          }, \"expectations\": {\"expected_keywords\": [\"passive\", \"surveillance\"\
+          ], \"question_type\": \"methodology_comparison\"}},\n        {\"inputs\"\
+          : {\"question\": \"What food poisoning cases were reported in Queensland\
+          \ last year?\"}, \"expectations\": {\"expected_keywords\": [\"salmonellosis\"\
+          ], \"question_type\": \"data_retrieval\"}},\n        {\"inputs\": {\"question\"\
+          : \"Should I get vaccinated against meningococcal disease based on the notification\
+          \ data?\"}, \"expectations\": {\"expected_keywords\": [\"cannot\", \"health\
+          \ advice\"], \"question_type\": \"scope_boundary\", \"forbidden_content\"\
+          : [\"you should get vaccinated\"]}},\n        {\"inputs\": {\"question\"\
+          : \"Are influenza notifications increasing because of climate change?\"\
+          }, \"expectations\": {\"expected_keywords\": [\"cannot\", \"causal\"], \"\
+          question_type\": \"scope_boundary\", \"forbidden_content\": [\"climate change\
+          \ causes\"]}},\n        # --- Fortnightly notifications (10) ---\n     \
+          \   {\"inputs\": {\"question\": \"What are the latest fortnightly COVID-19\
+          \ notifications by state?\"}, \"expectations\": {\"expected_keywords\":\
+          \ [\"COVID-19\", \"fortnightly\"], \"question_type\": \"data_retrieval\"\
+          }},\n        {\"inputs\": {\"question\": \"Compare RSV and influenza fortnightly\
+          \ notification trends in 2024\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"RSV\", \"influenza\", \"fortnightly\"], \"question_type\": \"cross_dataset\"\
+          }},\n        {\"inputs\": {\"question\": \"Show the fortnightly pertussis\
+          \ notifications across all states in 2025\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"pertussis\", \"fortnightly\"], \"question_type\": \"data_retrieval\"\
+          }},\n        {\"inputs\": {\"question\": \"Which disease group had the highest\
+          \ fortnightly notifications in the latest reporting period?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"disease_group\", \"fortnightly\"], \"question_type\"\
+          : \"data_retrieval\"}},\n        {\"inputs\": {\"question\": \"What are\
+          \ the measles fortnightly notifications by state in 2024-2025?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"measles\", \"fortnightly\"], \"question_type\"\
+          : \"data_retrieval\"}},\n        {\"inputs\": {\"question\": \"How do fortnightly\
+          \ hepatitis B notifications compare across states?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"hepatitis\", \"fortnightly\"], \"question_type\"\
+          : \"cross_dataset\"}},\n        {\"inputs\": {\"question\": \"Is there a\
+          \ seasonal pattern in fortnightly dengue notifications?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"dengue\", \"fortnightly\"], \"question_type\"\
+          : \"data_retrieval\"}},\n        {\"inputs\": {\"question\": \"Did COVID-19\
+          \ cause the increase in fortnightly RSV notifications in 2024?\"}, \"expectations\"\
+          : {\"expected_keywords\": [\"cannot\", \"causal\"], \"question_type\": \"\
+          scope_boundary\", \"forbidden_content\": [\"COVID caused\"]}},\n       \
+          \ {\"inputs\": {\"question\": \"What are the fortnightly chlamydia notifications\
+          \ in the Darwin region?\"}, \"expectations\": {\"expected_keywords\": [\"\
+          state\", \"territory\"], \"question_type\": \"geographic_resolution\"}},\n\
+          \        {\"inputs\": {\"question\": \"Compare the fortnightly tuberculosis\
+          \ and measles notification trends in 2025\"}, \"expectations\": {\"expected_keywords\"\
+          : [\"tuberculosis\", \"measles\", \"fortnightly\"], \"question_type\": \"\
+          cross_dataset\"}},\n    ]\n\n    # Each run gets its own dataset \u2014\
+          \ no mutation across runs\n    from datetime import datetime\n    run_ts\
+          \ = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    run_dataset_name = f\"\
+          {dataset_name}_{run_ts}\"\n\n    dataset = create_dataset(\n        name=run_dataset_name,\n\
+          \        tags={\"stage\": \"validation\", \"seeds\": str(len(test_cases)),\
+          \ \"agent\": \"nndss-data-agent\"},\n    )\n    dataset = dataset.merge_records(test_cases)\n\
+          \    print(f\"Dataset: {run_dataset_name} | {len(test_cases)} seeds | ID:\
+          \ {dataset.dataset_id}\", flush=True)\n\n    DatasetOutput = NamedTuple(\"\
+          DatasetOutput\", [(\"experiment_name\", str), (\"dataset_id\", str)])\n\
+          \    return DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)\n\
+          \n"
         image: python:3.12-slim
     exec-generate-variants-op:
       container:
