@@ -140,25 +140,17 @@ def create_dataset_op(
         {"inputs": {"question": "Are influenza notifications increasing because of climate change?"}, "expectations": {"expected_keywords": ["cannot", "causal"], "question_type": "scope_boundary", "forbidden_content": ["climate change causes"]}},
     ]
 
-    from mlflow.genai.datasets import get_dataset
-
-    # Reuse existing dataset if it already has the right number of records
-    try:
-        dataset = get_dataset(name=dataset_name)
-        existing = dataset.to_df()
-        if len(existing) >= len(test_cases):
-            print(f"Dataset exists: {dataset.dataset_id} | Records: {len(existing)}", flush=True)
-            DatasetOutput = NamedTuple("DatasetOutput", [("experiment_name", str), ("dataset_id", str)])
-            return DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)
-    except Exception:
-        pass
+    # Each run gets its own dataset — no mutation across runs
+    from datetime import datetime
+    run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dataset_name = f"{dataset_name}_{run_ts}"
 
     dataset = create_dataset(
-        name=dataset_name,
-        tags={"stage": "validation", "version": "1", "agent": "nndss-data-agent"},
+        name=run_dataset_name,
+        tags={"stage": "validation", "seeds": str(len(test_cases)), "agent": "nndss-data-agent"},
     )
     dataset = dataset.merge_records(test_cases)
-    print(f"Dataset created: {dataset.dataset_id} | Records: {len(test_cases)}", flush=True)
+    print(f"Dataset: {run_dataset_name} | {len(test_cases)} seeds | ID: {dataset.dataset_id}", flush=True)
 
     DatasetOutput = NamedTuple("DatasetOutput", [("experiment_name", str), ("dataset_id", str)])
     return DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)
@@ -211,7 +203,7 @@ def generate_variants_op(
     dataset = get_dataset(dataset_id=dataset_id)
     df = dataset.to_df()
     seed_count = len(df)
-    print(f"Seeds: {seed_count} questions", flush=True)
+    print(f"Dataset: {dataset.name} | {seed_count} seeds", flush=True)
 
     import pandas as pd
     seeds = []

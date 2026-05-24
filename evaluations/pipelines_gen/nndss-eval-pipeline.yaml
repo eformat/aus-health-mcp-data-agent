@@ -199,22 +199,17 @@ deploymentSpec:
           inputs\": {\"question\": \"Are influenza notifications increasing because\
           \ of climate change?\"}, \"expectations\": {\"expected_keywords\": [\"cannot\"\
           , \"causal\"], \"question_type\": \"scope_boundary\", \"forbidden_content\"\
-          : [\"climate change causes\"]}},\n    ]\n\n    from mlflow.genai.datasets\
-          \ import get_dataset\n\n    # Reuse existing dataset if it already has the\
-          \ right number of records\n    try:\n        dataset = get_dataset(name=dataset_name)\n\
-          \        existing = dataset.to_df()\n        if len(existing) >= len(test_cases):\n\
-          \            print(f\"Dataset exists: {dataset.dataset_id} | Records: {len(existing)}\"\
-          , flush=True)\n            DatasetOutput = NamedTuple(\"DatasetOutput\"\
-          , [(\"experiment_name\", str), (\"dataset_id\", str)])\n            return\
-          \ DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)\n\
-          \    except Exception:\n        pass\n\n    dataset = create_dataset(\n\
-          \        name=dataset_name,\n        tags={\"stage\": \"validation\", \"\
-          version\": \"1\", \"agent\": \"nndss-data-agent\"},\n    )\n    dataset\
-          \ = dataset.merge_records(test_cases)\n    print(f\"Dataset created: {dataset.dataset_id}\
-          \ | Records: {len(test_cases)}\", flush=True)\n\n    DatasetOutput = NamedTuple(\"\
-          DatasetOutput\", [(\"experiment_name\", str), (\"dataset_id\", str)])\n\
-          \    return DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)\n\
-          \n"
+          : [\"climate change causes\"]}},\n    ]\n\n    # Each run gets its own dataset\
+          \ \u2014 no mutation across runs\n    from datetime import datetime\n  \
+          \  run_ts = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    run_dataset_name\
+          \ = f\"{dataset_name}_{run_ts}\"\n\n    dataset = create_dataset(\n    \
+          \    name=run_dataset_name,\n        tags={\"stage\": \"validation\", \"\
+          seeds\": str(len(test_cases)), \"agent\": \"nndss-data-agent\"},\n    )\n\
+          \    dataset = dataset.merge_records(test_cases)\n    print(f\"Dataset:\
+          \ {run_dataset_name} | {len(test_cases)} seeds | ID: {dataset.dataset_id}\"\
+          , flush=True)\n\n    DatasetOutput = NamedTuple(\"DatasetOutput\", [(\"\
+          experiment_name\", str), (\"dataset_id\", str)])\n    return DatasetOutput(experiment_name=experiment_name,\
+          \ dataset_id=dataset.dataset_id)\n\n"
         image: python:3.12-slim
     exec-generate-variants-op:
       container:
@@ -263,11 +258,11 @@ deploymentSpec:
           name = '{experiment_name}'\")\n        if exps:\n            _fluent._active_experiment_id\
           \ = exps[0].experiment_id\n    else:\n        mlflow.set_experiment(experiment_name)\n\
           \n    dataset = get_dataset(dataset_id=dataset_id)\n    df = dataset.to_df()\n\
-          \    seed_count = len(df)\n    print(f\"Seeds: {seed_count} questions\"\
-          , flush=True)\n\n    import pandas as pd\n    seeds = []\n    for _, row\
-          \ in df.iterrows():\n        inputs = row.get(\"inputs\", {})\n        expectations\
-          \ = row.get(\"expectations\", {})\n        if isinstance(inputs, str):\n\
-          \            inputs = json.loads(inputs)\n        if isinstance(expectations,\
+          \    seed_count = len(df)\n    print(f\"Dataset: {dataset.name} | {seed_count}\
+          \ seeds\", flush=True)\n\n    import pandas as pd\n    seeds = []\n    for\
+          \ _, row in df.iterrows():\n        inputs = row.get(\"inputs\", {})\n \
+          \       expectations = row.get(\"expectations\", {})\n        if isinstance(inputs,\
+          \ str):\n            inputs = json.loads(inputs)\n        if isinstance(expectations,\
           \ str):\n            expectations = json.loads(expectations)\n        seeds.append({\n\
           \            \"question\": inputs.get(\"question\", \"\"),\n           \
           \ \"question_type\": expectations.get(\"question_type\", \"data_retrieval\"\
