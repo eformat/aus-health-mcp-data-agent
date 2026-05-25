@@ -23,6 +23,13 @@ build: ## Build agent image
 push: ## Push agent image to registry
 	podman push $(REGISTRY)/$(AGENT_IMAGE):$(TAG)
 
+# ── Model ───────────────────────────────────────────────────
+MAAS_BASE_URL ?= http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas
+AGENT_MODEL   ?= qwen36-27b
+
+set-model: ## Switch agent model: make set-model AGENT_MODEL=kimi-k2-6
+	@./scripts/set-model.sh $(AGENT_MODEL)
+
 # ── Deployment ──────────────────────────────────────────────
 deploy-all: ## Deploy everything (MinIO → Trino → Agent → DSPA → Eval)
 	./scripts/deploy-all.sh

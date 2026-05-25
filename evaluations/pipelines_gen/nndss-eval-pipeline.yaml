@@ -734,8 +734,7 @@ root:
   dag:
     tasks:
       create-dataset-op:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-create-dataset-op
         dependentTasks:
@@ -833,8 +832,7 @@ root:
         taskInfo:
           name: run-eval-op
       setup-mlflow-op:
-        cachingOptions:
-          enableCache: true
+        cachingOptions: {}
         componentRef:
           name: comp-setup-mlflow-op
         inputs:

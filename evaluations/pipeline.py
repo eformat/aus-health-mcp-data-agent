@@ -809,14 +809,16 @@ def nndss_eval_pipeline(
         mlflow_experiment_name=mlflow_experiment_name,
         mlflow_workspace=mlflow_workspace,
     )
+    setup.set_caching_options(False)
 
-    # Step 2
+    # Step 2 — caching disabled: timestamp in dataset name changes each run
     dataset = create_dataset_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
         experiment_name=setup.output,
         dataset_name=dataset_name,
         mlflow_workspace=mlflow_workspace,
     )
+    dataset.set_caching_options(False)
 
     # Step 2b — SDG Hub question variant generation
     sdg_task = generate_variants_op(

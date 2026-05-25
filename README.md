@@ -27,6 +27,71 @@ A framework for building evaluated, methodology-aware public health data agents 
 
 4. **Run the eval pipeline**: Adapt `templates/eval-pipeline/pipeline.py` with your model endpoint and MCP server URL, compile with `python pipeline.py`, and submit to your KFP instance.
 
+## NNDSS Health Agent
+
+A deployed implementation targeting Australian NNDSS disease surveillance data. LangChain/LangGraph agent with Chainlit UI, Trino Iceberg lakehouse, MLflow tracing, and automated evaluation.
+
+### Make Targets
+
+```bash
+make help                # Show all targets
+```
+
+**Build & Push**
+
+```bash
+make build               # Build agent container image
+make push                # Push to quay.io/eformat
+```
+
+**Deployment**
+
+```bash
+make deploy-all          # Full deployment: MinIO -> Trino -> Agent -> DSPA -> Eval
+make set-model AGENT_MODEL=kimi-k2-6   # Switch agent model
+```
+
+After switching models, redeploy:
+
+```bash
+oc apply -k agents/nndss-agent/deploy -n nndss-agent
+```
+
+**Evaluation**
+
+```bash
+make eval-compile        # Compile KFP pipeline to YAML
+make eval-submit         # Compile + upload + submit pipeline run
+make eval-status         # Check latest pipeline run statuses
+```
+
+The eval pipeline:
+1. Creates a timestamped MLflow dataset (20 seed questions)
+2. Generates ~60 variant questions via SDG Hub
+3. Runs the agent against all ~80 questions
+4. Scores responses with 11 scorers (4 deterministic + 7 LLM-as-judge)
+5. Logs results to MLflow with linked prompt version
+
+### Project Structure
+
+```
+agents/nndss-agent/          # LangChain + Chainlit agent
+  app.py                     # Main application
+  tools.py                   # query_trino, describe_datasets, get_methodology
+  system_prompt.md           # Versioned prompt (registered in MLflow)
+  deploy/                    # OpenShift deployment manifests
+
+agents/nndss-mcp-server/     # MCP server with NNDSS data
+
+evaluations/
+  pipeline.py                # KFP pipeline definition
+  flows/                     # SDG Hub question generation flow
+  prompts/                   # SDG Hub prompt templates
+
+deploy/                      # Infrastructure (MinIO, Trino, DSPA, RBAC)
+scripts/                     # Deployment and evaluation scripts
+```
+
 ## Documentation
 
 - [Reasoning Protocol](docs/reasoning-protocol.md) -- How to apply the 6-step protocol to your domain
