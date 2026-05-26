@@ -2,13 +2,21 @@
 
 All data access goes through Trino (Iceberg lakehouse on MinIO S3).
 Metadata tools return hardcoded domain knowledge.
+SpiceDB provides fine-grained permission checks on datasets.
 """
 
 import json
 import os
 import re
 
+import asyncio
+import concurrent.futures
+
+import grpc
+
 from langchain_core.tools import tool
+from langchain_spicedb.core import SpiceDBAuthorizer
+from authzed.api.v1 import Client as SpiceDBClient
 
 TRINO_HOST = os.environ.get("TRINO_QUERY_HOST", "trino")
 TRINO_PORT = int(os.environ.get("TRINO_QUERY_PORT", "8080"))
@@ -165,4 +173,105 @@ def get_methodology(dataset_name: str) -> str:
         "dataset": _DISEASE_FORMAL[resolved],
         "surveillance_type": "Passive (notification-based)",
         **meth,
+    })
+
+
+class _BearerInterceptor(grpc.UnaryUnaryClientInterceptor):
+    def __init__(self, token):
+        self._metadata = [("authorization", f"Bearer {token}")]
+
+    def intercept_unary_unary(self, continuation, client_call_details, request):
+        metadata = list(client_call_details.metadata or []) + self._metadata
+        new_details = client_call_details._replace(metadata=metadata)
+        return continuation(new_details, request)
+
+
+class _AsyncBearerInterceptor(grpc.aio.UnaryUnaryClientInterceptor):
+    def __init__(self, token):
+        self._metadata = [("authorization", f"Bearer {token}")]
+
+    async def intercept_unary_unary(self, continuation, client_call_details, request):
+        metadata = list(client_call_details.metadata or []) + self._metadata
+        new_details = grpc.aio.ClientCallDetails(
+            client_call_details.method, client_call_details.timeout,
+            metadata, client_call_details.credentials,
+            client_call_details.wait_for_ready,
+        )
+        return await continuation(new_details, request)
+
+
+class _InsecureSpiceDBAuthorizer(SpiceDBAuthorizer):
+    """SpiceDBAuthorizer using a plaintext gRPC channel for in-cluster comms.
+
+    The upstream insecure_bearer_token_credentials uses grpc.local_channel_credentials
+    which rejects non-loopback addresses. This creates a plaintext channel with a
+    bearer token interceptor instead.
+    """
+
+    @property
+    def client(self) -> SpiceDBClient:
+        current_loop = None
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
+        if self._client is None or self._client_loop is not current_loop:
+            if current_loop:
+                channel = grpc.aio.insecure_channel(
+                    self.spicedb_endpoint,
+                    interceptors=[_AsyncBearerInterceptor(self.spicedb_token)],
+                )
+            else:
+                channel = grpc.intercept_channel(
+                    grpc.insecure_channel(self.spicedb_endpoint),
+                    _BearerInterceptor(self.spicedb_token),
+                )
+            self._client = SpiceDBClient.__new__(SpiceDBClient)
+            self._client.init_stubs(channel)
+            self._client_loop = current_loop
+        return self._client
+
+
+_spicedb = _InsecureSpiceDBAuthorizer(
+    spicedb_endpoint=os.environ.get("SPICEDB_ENDPOINT", "dev:50051"),
+    spicedb_token=os.environ.get("SPICEDB_TOKEN", "averysecretpresharedkey"),
+    subject_type="user",
+    resource_type="dataset",
+)
+
+
+@tool
+def check_dataset_permission(subject_id: str, resource_id: str, permission: str) -> str:
+    """Check if a user has a specific permission on a dataset using SpiceDB.
+
+    Args:
+        subject_id: The user ID to check (e.g., 'admin', 'viewer').
+        resource_id: The dataset name (e.g., 'notifications', 'fortnightly_notifications', 'population').
+        permission: The permission to check (e.g., 'query', 'view_metadata', 'export').
+
+    Returns:
+        JSON with 'allowed' (true/false) and details.
+    """
+    def _check():
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(
+                _spicedb.check_permission(
+                    subject_id=subject_id,
+                    resource_id=resource_id,
+                    permission=permission,
+                )
+            )
+        finally:
+            loop.close()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        allowed = pool.submit(_check).result(timeout=10)
+
+    return json.dumps({
+        "allowed": allowed,
+        "subject": f"user:{subject_id}",
+        "resource": f"dataset:{resource_id}",
+        "permission": permission,
     })

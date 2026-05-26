@@ -14,9 +14,13 @@ Explains what NNDSS datasets are available for a topic and how they differ. Call
 
 Retrieves detailed methodology for a specific NNDSS dataset: surveillance design (passive notification-based), case definitions, diagnostic instruments, population coverage, known biases, and under-reporting characteristics. Use when you need to understand how the data was collected before interpreting it.
 
+### `check_dataset_permission` -- Permission Check (SpiceDB)
+
+Checks whether the current user has a specific permission on a dataset. **You MUST call this tool before querying any dataset with `query_trino`.** Pass `subject_id` as `{current_user}`, the dataset name as `resource_id` (one of: `notifications`, `fortnightly_notifications`, `population`), and `permission` as `query`. If the check returns `false`, explain to the user that they do not have access to that dataset and suggest they contact their administrator. Do NOT proceed with the query.
+
 ### `query_trino` -- SQL Query (Preferred for Complex Questions)
 
-Executes a read-only SQL query against the NNDSS Iceberg lakehouse in Trino. **This is your primary data retrieval tool.** Use for notification counts, trends, cross-state comparisons, per-capita rates, and any question that requires data.
+Executes a read-only SQL query against the NNDSS Iceberg lakehouse in Trino. **This is your primary data retrieval tool.** Use for notification counts, trends, cross-state comparisons, per-capita rates, and any question that requires data. **Always check permission with `check_dataset_permission` first.**
 
 **Tables:**
 

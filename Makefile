@@ -7,7 +7,7 @@ AGENT_IMAGE  ?= nndss-agent
 TAG          ?= latest
 PLATFORM     ?= linux/amd64
 
-.PHONY: help build push all deploy-all eval-compile eval-submit eval-status
+.PHONY: help build push all deploy-all eval-compile eval-submit eval-status spicedb-schema spicedb-seed spicedb-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -47,3 +47,18 @@ eval-submit: ## Compile and submit eval pipeline run
 
 eval-status: ## Check latest eval pipeline run status
 	@./scripts/eval-status.sh
+
+# ── SpiceDB ────────────────────────────────────────────────
+SPICEDB_NS ?= spicedb
+
+spicedb-schema: ## Write SpiceDB schema from schema.zed
+	@./scripts/spicedb-manage.sh schema
+
+spicedb-seed: ## Seed SpiceDB with test users and relationships
+	@./scripts/spicedb-manage.sh seed
+
+USER ?= admin
+PERM ?= query
+DATASET ?= notifications
+spicedb-check: ## Check permission: make spicedb-check USER=admin PERM=query DATASET=notifications
+	@./scripts/spicedb-manage.sh check $(USER) $(PERM) $(DATASET)

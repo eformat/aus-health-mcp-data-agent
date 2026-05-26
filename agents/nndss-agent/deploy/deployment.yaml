@@ -51,6 +51,13 @@ spec:
               value: "admin"
             - name: AUTH_PASSWORD
               value: "admin"
+            - name: SPICEDB_ENDPOINT
+              value: "dev:50051"
+            - name: SPICEDB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dev-spicedb-config
+                  key: preshared_key
           resources:
             requests:
               cpu: 200m

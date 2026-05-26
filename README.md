@@ -63,6 +63,14 @@ After switching models, redeploy:
 oc apply -k agents/nndss-agent/deploy -n nndss-agent
 ```
 
+**SpiceDB (Authorization)**
+
+```bash
+make spicedb-schema                                          # Write schema to SpiceDB
+make spicedb-seed                                            # Seed test users and relationships
+make spicedb-check USER=admin PERM=query DATASET=notifications  # Check a permission
+```
+
 **Evaluation**
 
 ```bash
@@ -83,8 +91,9 @@ The eval pipeline:
 ```
 agents/nndss-agent/          # LangChain + Chainlit agent
   app.py                     # Main application
-  tools.py                   # query_trino, describe_datasets, get_methodology
+  tools.py                   # query_trino, describe_datasets, get_methodology, check_dataset_permission
   system_prompt.md           # Versioned prompt (registered in MLflow)
+  spicedb/                   # SpiceDB schema and relationship seeder
   deploy/                    # OpenShift deployment manifests
 
 agents/nndss-mcp-server/     # MCP server with NNDSS data

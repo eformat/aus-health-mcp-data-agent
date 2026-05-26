@@ -18,17 +18,17 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.callbacks import BaseCallbackHandler
 import chainlit as cl
 
-from tools import query_trino, describe_datasets, get_methodology
+from tools import query_trino, describe_datasets, get_methodology, check_dataset_permission
 from prompts import get_system_prompt
 from data_layer import InMemoryDataLayer
 
-TOOLS = [query_trino, describe_datasets, get_methodology]
+TOOLS = [query_trino, describe_datasets, get_methodology, check_dataset_permission]
 
 # Register data layer for chat history sidebar
 cl.data._data_layer = InMemoryDataLayer()
 
 
-def _build_agent():
+def _build_agent(username: str = "anonymous"):
     """Create a LangGraph ReAct agent with tool-calling support."""
     llm = ChatOpenAI(
         model=os.environ.get("MODEL_NAME", "qwen36-27b"),
@@ -45,10 +45,12 @@ def _build_agent():
         },
     )
 
+    prompt = get_system_prompt().replace("{current_user}", username)
+
     return create_react_agent(
         model=llm,
         tools=TOOLS,
-        prompt=get_system_prompt(),
+        prompt=prompt,
     )
 
 
@@ -133,7 +135,9 @@ def auth_callback(username: str, password: str):
 
 @cl.on_chat_start
 async def start():
-    agent = _build_agent()
+    user = cl.user_session.get("user")
+    username = user.identifier if user else "anonymous"
+    agent = _build_agent(username=username)
     cl.user_session.set("agent", agent)
     cl.user_session.set("chat_history", [])
 
@@ -152,6 +156,14 @@ class _TracingHandler(BaseCallbackHandler):
         self.last_tool_end = time.time()
 
 
+
+
+_PERMISSION_INSIST_MSG = (
+    "Your answer did not include a call to check_dataset_permission. "
+    "The system prompt requires you to check permissions BEFORE querying "
+    "any dataset with query_trino. Please call check_dataset_permission "
+    "first with the current user's subject_id, then proceed."
+)
 
 
 @cl.on_message
@@ -197,6 +209,18 @@ async def on_message(message: cl.Message):
                         {"messages": messages},
                         config={"callbacks": [handler]},
                     )
+
+                    # Permission insistor: if query_trino was called but
+                    # check_dataset_permission was not, retry once.
+                    if ("query_trino" in handler.tool_names
+                            and "check_dataset_permission" not in handler.tool_names):
+                        retry_messages = list(result.get("messages", []))
+                        retry_messages.append(HumanMessage(content=_PERMISSION_INSIST_MSG))
+                        handler.tool_names.clear()
+                        result = agent.invoke(
+                            {"messages": retry_messages},
+                            config={"callbacks": [handler]},
+                        )
 
                     span.set_outputs({"done": True})
 
