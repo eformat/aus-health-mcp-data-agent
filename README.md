@@ -44,6 +44,12 @@ make build               # Build agent container image
 make push                # Push to quay.io/eformat
 ```
 
+**Prompts**
+
+```bash
+make register-prompt PROMPT_MSG="v4: changes"   # Register system_prompt.md in MLflow, set @production alias
+```
+
 **Deployment**
 
 ```bash
