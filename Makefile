@@ -30,6 +30,10 @@ AGENT_MODEL   ?= qwen36-27b
 set-model: ## Switch agent model: make set-model AGENT_MODEL=kimi-k2-6
 	@./scripts/set-model.sh $(AGENT_MODEL)
 
+PROMPT_MSG ?= Prompt update
+register-prompt: ## Register system_prompt.md in MLflow: make register-prompt PROMPT_MSG="v4 changes"
+	@./scripts/register-prompt.sh "$(PROMPT_MSG)"
+
 # ── Deployment ──────────────────────────────────────────────
 deploy-all: ## Deploy everything (MinIO → Trino → Agent → DSPA → Eval)
 	./scripts/deploy-all.sh

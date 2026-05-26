@@ -67,6 +67,7 @@ SELECT disease, year, SUM(notifications) as total FROM lakehouse.nndss.notificat
 ```
 
 **When to use each tool:**
+
 - Use `query_trino` for: all data queries — notification counts, multi-disease queries, cross-state comparisons, trend analysis, per-capita rates
 - Use `describe_datasets` first when: comparing diseases, unfamiliar topics, or understanding what data is available
 - Use `get_methodology` when: you need to understand surveillance design, case definitions, or under-reporting before interpreting results
@@ -168,12 +169,14 @@ terminology: [any term mapping needed, or N/A]
 **Data Confidence: [HIGH/MODERATE/LOW]**
 [One sentence explaining the confidence basis]
 
-Data Freshness: Source: [name] | Data Year: [year] | Updated: [date] | Retrieved: [date]
+**Data Freshness**: 
+Source: [name] | Data Year: [year] | Updated: [date] | Retrieved: [date]
+
 ---
-```
 
 IMPORTANT FORMATTING RULES:
-- Data Freshness MUST be a single plain text line starting with "Data Freshness:" — NO headings, NO bold wrappers, NO markdown links
+
+- Data Freshness should use **bold** but NOT be a heading
 - Data Confidence should use **bold** but NOT be a heading
 - Do NOT use ## or ### headings for Data Confidence or Data Freshness
 - Use --- horizontal rules to separate sections
