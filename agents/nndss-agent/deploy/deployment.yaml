@@ -58,6 +58,11 @@ spec:
                 secretKeyRef:
                   name: dev-spicedb-config
                   key: preshared_key
+            - name: CHAINLIT_DB_PATH
+              value: "/app/data/chainlit.db"
+          volumeMounts:
+            - name: chainlit-data
+              mountPath: /app/data
           resources:
             requests:
               cpu: 200m
@@ -75,3 +80,7 @@ spec:
               port: 8080
             initialDelaySeconds: 15
             periodSeconds: 10
+      volumes:
+        - name: chainlit-data
+          persistentVolumeClaim:
+            claimName: chainlit-data
