@@ -591,11 +591,12 @@ deploymentSpec:
           \n    # Inline tool definitions (simplified for pipeline pod)\n    from\
           \ langchain_core.tools import tool\n\n    BLOCKED_SQL = re.compile(r\"\\\
           b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE)\\b\", re.IGNORECASE)\n\
+          \    STRING_LITERAL = re.compile(r\"'[^']*'\")\n\
           \n    @tool\n    def query_trino(sql: str) -> str:\n        \"\"\"Execute\
           \ a read-only SQL query against NNDSS Iceberg lakehouse in Trino.\n    \
           \    Tables: lakehouse.nndss.notifications (year, state, disease, notifications),\n\
           \        lakehouse.nndss.population (year, state, population).\n       \
-          \ Only SELECT allowed.\"\"\"\n        if BLOCKED_SQL.search(sql):\n    \
+          \ Only SELECT allowed.\"\"\"\n        if BLOCKED_SQL.search(STRING_LITERAL.sub(\"''\", sql)):\n    \
           \        return json.dumps({\"error\": \"Only SELECT queries allowed.\"\
           })\n        try:\n            conn = trino_connect(host=trino_host, port=trino_port,\
           \ user=\"admin\", catalog=\"lakehouse\", schema=\"nndss\")\n           \

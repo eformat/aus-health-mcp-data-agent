@@ -633,6 +633,7 @@ def run_eval_op(
     from langchain_core.tools import tool
 
     BLOCKED_SQL = re.compile(r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE)\b", re.IGNORECASE)
+    STRING_LITERAL = re.compile(r"'[^']*'")
 
     @tool
     def query_trino(sql: str) -> str:
@@ -640,7 +641,7 @@ def run_eval_op(
         Tables: lakehouse.nndss.notifications (year, state, disease, notifications),
         lakehouse.nndss.population (year, state, population).
         Only SELECT allowed."""
-        if BLOCKED_SQL.search(sql):
+        if BLOCKED_SQL.search(STRING_LITERAL.sub("''", sql)):
             return json.dumps({"error": "Only SELECT queries allowed."})
         try:
             conn = trino_connect(host=trino_host, port=trino_port, user="admin", catalog="lakehouse", schema="nndss")
