@@ -14,6 +14,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Prefer the project venv python if it exists
+if [ -x "${REPO_DIR}/venv/bin/python3" ]; then
+  PYTHON="${REPO_DIR}/venv/bin/python3"
+else
+  PYTHON="python3"
+fi
+
 NAMESPACE="${NAMESPACE:-nndss-agent}"
 MINIO_NAMESPACE="${MINIO_NAMESPACE:-minio}"
 MAAS_API_KEY="${MAAS_API_KEY:-}"
@@ -41,6 +48,12 @@ oc get route minio-api -n "${MINIO_NAMESPACE}" 2>/dev/null || \
   oc create route edge minio-api --service=minio --port=9000 -n "${MINIO_NAMESPACE}"
 
 MINIO_API=$(oc get route minio-api -n "${MINIO_NAMESPACE}" -o jsonpath='{.spec.host}')
+echo "Waiting for MinIO API route..."
+for i in $(seq 1 12); do
+  mc alias set nndss "https://${MINIO_API}" minio minio1234 2>/dev/null && break
+  echo "  retry $i/12..."
+  sleep 5
+done
 mc alias set nndss "https://${MINIO_API}" minio minio1234
 
 # ── 3. Create MinIO buckets ───────────────────────────────────
@@ -79,41 +92,64 @@ sleep 5
 
 TRINO_HOST=localhost TRINO_PORT=8090 \
   DATA_DIR="${REPO_DIR}/agents/nndss-mcp-server/data" \
-  python3 "${REPO_DIR}/scripts/load-nndss-trino.py"
+  $PYTHON "${REPO_DIR}/scripts/load-nndss-trino.py"
 
 TRINO_HOST=localhost TRINO_PORT=8090 \
-  python3 "${REPO_DIR}/scripts/load-population-trino.py"
+  $PYTHON "${REPO_DIR}/scripts/load-population-trino.py"
 
 kill $PF_PID 2>/dev/null || true
 
-# ── 7. Create secrets ─────────────────────────────────────────
-echo "==> 7. Creating secrets"
+# ── 7. Deploy Trino Query UI ─────────────────────────────────
+echo "==> 7. Deploying Trino Query UI"
+helm upgrade --install trino-query-ui "${REPO_DIR}/deploy/trino-query-ui" \
+  -n "${NAMESPACE}" \
+  --set trinoUpstream="trino:8080"
+oc rollout status deployment/trino-query-ui -n "${NAMESPACE}" --timeout=120s
+
+# ── 8. Create secrets ─────────────────────────────────────────
+echo "==> 8. Creating secrets"
 oc create secret generic nndss-agent-maas-key \
   --from-literal=api-key="${MAAS_API_KEY}" \
   -n "${NAMESPACE}" 2>/dev/null || echo "Secret already exists"
 
 oc apply -f "${REPO_DIR}/deploy/pipeline-s3-secret.yaml" -n "${NAMESPACE}"
 
-# ── 8. Deploy RBAC ────────────────────────────────────────────
-echo "==> 8. Deploying RBAC"
+# ── 9. Deploy RBAC ────────────────────────────────────────────
+echo "==> 9. Deploying RBAC"
 oc apply -f "${REPO_DIR}/deploy/mlflow-rbac.yaml" -n "${NAMESPACE}"
 oc apply -f "${REPO_DIR}/deploy/pipeline-mlflow-rbac.yaml" -n "${NAMESPACE}"
 
-# ── 9. Deploy agent ───────────────────────────────────────────
-echo "==> 9. Deploying agent"
+# ── 10. Deploy SpiceDB ────────────────────────────────────────
+echo "==> 10. Deploying SpiceDB (Postgres + SpiceDB operator CR)"
+oc apply -k "${REPO_DIR}/deploy/spicedb" -n "${NAMESPACE}"
+echo "Waiting for SpiceDB Postgres..."
+oc rollout status deployment/spicedb-postgres -n "${NAMESPACE}" --timeout=120s
+echo "Waiting for SpiceDB..."
+sleep 10
+oc wait --for=jsonpath='{.status.image}' spicedbcluster/dev -n "${NAMESPACE}" --timeout=120s
+echo "Seeding SpiceDB schema and relationships..."
+oc port-forward -n "${NAMESPACE}" svc/dev 50051:50051 &>/dev/null &
+PF_PID=$!
+sleep 5
+SPICEDB_ENDPOINT="localhost:50051" SPICEDB_TOKEN="averysecretpresharedkey" \
+  $PYTHON "${REPO_DIR}/agents/nndss-agent/spicedb/seed_relationships.py"
+kill $PF_PID 2>/dev/null || true
+
+# ── 11. Deploy agent ──────────────────────────────────────────
+echo "==> 11. Deploying agent"
 oc apply -k "${REPO_DIR}/agents/nndss-agent/deploy" -n "${NAMESPACE}"
 oc rollout status deployment/nndss-agent -n "${NAMESPACE}" --timeout=120s
 
-# ── 10. Deploy pipeline server (DSPA) ─────────────────────────
-echo "==> 10. Deploying pipeline server"
+# ── 12. Deploy pipeline server (DSPA) ─────────────────────────
+echo "==> 12. Deploying pipeline server"
 oc apply -f "${REPO_DIR}/deploy/dspa.yaml" -n "${NAMESPACE}"
 echo "Waiting for DSPA..."
 sleep 30
 oc rollout status deployment/ds-pipeline-dspa -n "${NAMESPACE}" --timeout=120s
 
-# ── 11. Compile and submit eval pipeline ─────────────────────
-echo "==> 11. Compiling and submitting eval pipeline"
-python3 "${REPO_DIR}/evaluations/pipeline.py" --compile
+# ── 13. Compile and submit eval pipeline ─────────────────────
+echo "==> 13. Compiling and submitting eval pipeline"
+$PYTHON "${REPO_DIR}/evaluations/pipeline.py" --compile
 
 DSPA_ROUTE=$(oc get route -n "${NAMESPACE}" -l app=ds-pipeline-dspa -o jsonpath='{.items[0].spec.host}' 2>/dev/null)
 if [ -n "${DSPA_ROUTE}" ]; then
@@ -125,17 +161,17 @@ if [ -n "${DSPA_ROUTE}" ]; then
     -H "Authorization: Bearer ${SA_TOKEN}" \
     -F "uploadfile=@${PIPELINE_FILE}" \
     -F "name=nndss-health-eval" 2>/dev/null \
-    | python3 -c "import sys,json; print(json.load(sys.stdin).get('pipeline_id',''))" 2>/dev/null)
+    | $PYTHON -c "import sys,json; print(json.load(sys.stdin).get('pipeline_id',''))" 2>/dev/null)
 
   if [ -z "${PIPELINE_ID}" ]; then
     # Pipeline exists — find its ID
     PIPELINE_ID=$(curl -ks "https://${DSPA_ROUTE}/apis/v2beta1/pipelines?page_size=50" \
       -H "Authorization: Bearer ${SA_TOKEN}" \
-      | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((p['pipeline_id'] for p in d.get('pipelines',[]) if p['display_name']=='nndss-health-eval'),''))" 2>/dev/null)
+      | $PYTHON -c "import sys,json; d=json.load(sys.stdin); print(next((p['pipeline_id'] for p in d.get('pipelines',[]) if p['display_name']=='nndss-health-eval'),''))" 2>/dev/null)
 
     if [ -n "${PIPELINE_ID}" ]; then
       # Upload new version via kfp client
-      python3 -c "
+      $PYTHON -c "
 import kfp, warnings
 warnings.filterwarnings('ignore')
 client = kfp.Client(host='https://${DSPA_ROUTE}', existing_token='${SA_TOKEN}', ssl_ca_cert=None)
@@ -154,7 +190,7 @@ else
   echo "WARNING: No DSPA route found. Upload eval pipeline manually."
 fi
 
-# ── 12. Routes ────────────────────────────────────────────────
+# ── 14. Routes ────────────────────────────────────────────────
 echo ""
 echo "============================================"
 echo "  Deployment Complete"

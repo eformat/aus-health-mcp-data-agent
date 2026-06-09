@@ -49,7 +49,7 @@ eval-status: ## Check latest eval pipeline run status
 	@./scripts/eval-status.sh
 
 # ── SpiceDB ────────────────────────────────────────────────
-SPICEDB_NS ?= spicedb
+SPICEDB_NS ?= nndss-agent
 
 spicedb-schema: ## Write SpiceDB schema from schema.zed
 	@./scripts/spicedb-manage.sh schema

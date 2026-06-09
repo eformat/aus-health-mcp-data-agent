@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SPICEDB_NS="${SPICEDB_NS:-spicedb}"
+SPICEDB_NS="${SPICEDB_NS:-nndss-agent}"
 SPICEDB_SVC="dev"
 SPICEDB_PORT=50051
 LOCAL_PORT=50051
