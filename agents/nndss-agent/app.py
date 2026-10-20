@@ -378,10 +378,6 @@ async def on_message(message: cl.Message):
 
     footer = "\n\n---\n" + " | ".join(footer_parts)
 
-    # Send the response, then attach reasoning as collapsible child step
-    msg = cl.Message(content=answer + footer)
-    await msg.send()
-
     # Always show reasoning — from model's <reasoning> tags or generated fallback
     reasoning_output = reasoning
     if not reasoning_output and handler.tool_names:
@@ -401,9 +397,13 @@ async def on_message(message: cl.Message):
             f"- **terminology:** NNDSS terms used as returned by the data source."
         )
 
+    # Show reasoning before answer (collapsed by default, like thinking UI)
     if reasoning_output:
-        async with cl.Step(name="Reasoning", type="tool", parent_id=msg.id) as rstep:
+        async with cl.Step(name="Reasoning", type="llm", auto_collapse=True) as rstep:
             rstep.output = reasoning_output
+
+    msg = cl.Message(content=answer + footer)
+    await msg.send()
 
     chat_history.extend([
         ("human", message.content),

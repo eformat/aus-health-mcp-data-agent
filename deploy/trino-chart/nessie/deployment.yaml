@@ -19,7 +19,12 @@ spec:
         runAsNonRoot: true
       containers:
         - name: nessie
-          image: ghcr.io/projectnessie/nessie:latest
+          # Pinned: ':latest' + Always pulled a newer Nessie whose renamed config
+          # property silently ignored the old env var, dropping the version store
+          # to ephemeral /tmp (catalog refs wiped on every container restart).
+          # (latest release at time of writing: 0.109.0)
+          image: ghcr.io/projectnessie/nessie:0.109.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 19120
               protocol: TCP
@@ -28,7 +33,9 @@ spec:
               value: prod
             - name: NESSIE_VERSION_STORE_TYPE
               value: ROCKSDB
-            - name: NESSIE_VERSION_STORE_PERSIST_ROCKS_DB_DATABASE_PATH
+            # 2.x property: nessie.version.store.persist.rocks.database-path
+            # (pre-2.x name NESSIE_VERSION_STORE_PERSIST_ROCKS_DB_DATABASE_PATH is ignored)
+            - name: NESSIE_VERSION_STORE_PERSIST_ROCKS_DATABASE_PATH
               value: /nessie/rocksdb
           volumeMounts:
             - name: nessie-data
