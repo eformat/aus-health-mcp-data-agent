@@ -6,6 +6,14 @@ patches the classes before they're instantiated.
 
 import os
 import tempfile
+import time
+
+# MLflow init runs once per container: if the tracking server is unreachable
+# at pod startup (e.g. it is being rolled), the LangChain autolog registration
+# would be skipped and EVERY trace would silently lose all but the root span
+# (2026-10-20 incident). Retry generously before giving up.
+_INIT_ATTEMPTS = 10
+_INIT_RETRY_WAIT_S = 20
 
 
 def _setup_ca_bundle() -> None:
@@ -37,51 +45,65 @@ def init() -> None:
     if not mlflow_uri:
         return
 
-    try:
-        import urllib3
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    last_exc: Exception | None = None
+    for attempt in range(1, _INIT_ATTEMPTS + 1):
+        try:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-        _setup_ca_bundle()
+            _setup_ca_bundle()
 
-        import mlflow
+            import mlflow
 
-        # Token file auth (RHOAI 3.5 CR mode)
-        token_file = os.environ.get("MLFLOW_TRACKING_TOKEN_FILE", "").strip()
-        if token_file and os.path.isfile(token_file):
-            with open(token_file) as f:
-                os.environ["MLFLOW_TRACKING_TOKEN"] = f.read().strip()
+            # Token file auth (RHOAI 3.5 CR mode)
+            token_file = os.environ.get("MLFLOW_TRACKING_TOKEN_FILE", "").strip()
+            if token_file and os.path.isfile(token_file):
+                with open(token_file) as f:
+                    os.environ["MLFLOW_TRACKING_TOKEN"] = f.read().strip()
 
-        mlflow.set_tracking_uri(mlflow_uri)
+            mlflow.set_tracking_uri(mlflow_uri)
 
-        # Workspace (CR mode)
-        workspace = os.environ.get("MLFLOW_WORKSPACE", "").strip()
-        if workspace:
-            mlflow.set_workspace(workspace)
+            # Workspace (CR mode)
+            workspace = os.environ.get("MLFLOW_WORKSPACE", "").strip()
+            if workspace:
+                mlflow.set_workspace(workspace)
 
-        experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "nndss-data-agent")
+            experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "nndss-data-agent")
 
-        if workspace:
-            import mlflow.tracking.fluent as _fluent
-            client = mlflow.MlflowClient()
-            exps = client.search_experiments(
-                filter_string=f"name = '{experiment_name}'"
-            )
-            if exps:
-                _fluent._active_experiment_id = exps[0].experiment_id
+            if workspace:
+                import mlflow.tracking.fluent as _fluent
+                client = mlflow.MlflowClient()
+                exps = client.search_experiments(
+                    filter_string=f"name = '{experiment_name}'"
+                )
+                if exps:
+                    _fluent._active_experiment_id = exps[0].experiment_id
+                else:
+                    _fluent._active_experiment_id = client.create_experiment(experiment_name)
+                print(f"[mlflow] Workspace={workspace}  experiment_id={_fluent._active_experiment_id}", flush=True)
             else:
-                _fluent._active_experiment_id = client.create_experiment(experiment_name)
-            print(f"[mlflow] Workspace={workspace}  experiment_id={_fluent._active_experiment_id}", flush=True)
-        else:
-            mlflow.set_experiment(experiment_name)
+                mlflow.set_experiment(experiment_name)
 
-        # LangChain autolog — captures all LLM calls and tool invocations.
-        mlflow.langchain.autolog()
+            # LangChain autolog — captures all LLM calls and tool invocations.
+            # Must be in the same retried block as the experiment lookup: if the
+            # server is down at pod start, skipping autolog silently drops every
+            # span except the root.
+            mlflow.langchain.autolog()
 
-        print(f"[mlflow] Tracing enabled (langchain autolog) → {mlflow_uri}", flush=True)
+            print(f"[mlflow] Tracing enabled (langchain autolog) → {mlflow_uri}", flush=True)
 
-        # Register prompts
-        from prompts import register_prompts
-        register_prompts()
+            # Register prompts
+            from prompts import register_prompts
+            register_prompts()
+            return
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _INIT_ATTEMPTS:
+                print(
+                    f"[mlflow] Init attempt {attempt}/{_INIT_ATTEMPTS} failed, "
+                    f"retrying in {_INIT_RETRY_WAIT_S}s: {exc}",
+                    flush=True,
+                )
+                time.sleep(_INIT_RETRY_WAIT_S)
 
-    except Exception as exc:
-        print(f"[mlflow] Failed to initialise (continuing without): {exc}", flush=True)
+    print(f"[mlflow] Failed to initialise (continuing without): {last_exc}", flush=True)
