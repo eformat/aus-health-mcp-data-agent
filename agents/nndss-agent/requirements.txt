@@ -6,5 +6,8 @@ langgraph>=0.4
 mlflow>=3.10
 trino>=0.329
 aiosqlite>=0.20
+# SQLAlchemy's asyncio path (chainlit data layer) requires greenlet; fresh pip
+# resolves stopped pulling it transitively, which crashed the container at import.
+greenlet>=3.0
 langchain-spicedb
 authzed
