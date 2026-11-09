@@ -140,9 +140,9 @@ cl.data._data_layer = SQLAlchemyDataLayer(conninfo=_DB_CONNINFO)
 def _build_agent(username: str = "anonymous"):
     """Create a LangGraph ReAct agent with tool-calling support."""
     llm = ChatOpenAI(
-        model=os.environ.get("MODEL_NAME", "qwen36-27b"),
+        model=os.environ.get("MODEL_NAME", "publishers/prelude-maas/models/glm-53-flash"),
         base_url=os.environ.get("MODEL_ENDPOINT",
-            "http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1"),
+            "https://maas.apps.ocp.cloud.rhai-tmm.dev/v1"),
         api_key=os.environ.get("OPENAI_API_KEY", "not-required"),
         temperature=0.3,
         max_tokens=8192,

@@ -454,8 +454,8 @@ catalogs:
   llm: |
     connector.name=ai
     ai.provider=openai
-    ai.model=llama-4-scout-17b-16e-w4a16
-    ai.openai.endpoint=https://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/llama-4-scout-17b-16e-w4a16
+    ai.model=publishers/prelude-maas/models/glm-53-flash
+    ai.openai.endpoint=https://maas.apps.ocp.cloud.rhai-tmm.dev/v1
     ai.openai.api-key=${ENV:OPENAI_API_KEY}
   lakehouse: |
     connector.name=iceberg

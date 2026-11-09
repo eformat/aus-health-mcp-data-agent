@@ -1,0 +1,8 @@
+# Deploys MinIO into the SAME namespace as the rest of the stack
+# (MINIO_NAMESPACE == NAMESPACE), e.g. everything in user-mhepburn.
+# Unlike overlays/cluster-dev there is no namespace transform and no
+# Namespace object — apply with -n <target>.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base

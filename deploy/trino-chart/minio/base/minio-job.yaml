@@ -12,7 +12,9 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: minio/mc:latest
+          # minio/mc images were removed from docker.io (archive) — pgsty/silo
+          # ships mc at /usr/bin/mc
+          image: pgsty/silo:latest # quay.io/eformat/mc:RELEASE.2025-08-13T08-35-41Z
           imagePullPolicy: IfNotPresent
           command:
             - /bin/sh

@@ -37,7 +37,9 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             failureThreshold: 10
-          image: docker.io/minio/minio:latest
+          # MinIO archived the open-source docker.io images (2026) — pgsty/silo
+          # is the Pigsty repack (server + mc), proven on this cluster
+          image: pgsty/silo:latest # quay.io/eformat/minio:RELEASE.2025-09-07T16-13-09Z
           imagePullPolicy: IfNotPresent
           resources: {}
           args:

@@ -1,0 +1,1068 @@
+# SpiceDB Operator — CLUSTER-SCOPED install (the normal default).
+#
+# Vendored from authzed/spicedb-operator v1.27.0 bundle.yaml with two OpenShift
+# fixes baked in (previously separate files, now superseded by this one):
+#   - memory 256Mi/512Mi (upstream 160Mi limit OOMKills) [operator-memory-patch.yaml]
+#   - nonroot-v2 SCC RoleBinding for the distroless UID 65532 [operator-install.yaml]
+# The operator watches ALL namespaces. For widely-shared clusters prefer the
+# namespaced variant: deploy/spicedb/operator-namespaced.yaml
+#   (SPICEDB_OPERATOR_SCOPE=namespaced ./scripts/deploy-all.sh)
+# Install: ./scripts/install-spicedb-operator.sh <namespace> cluster
+# The CRD (deploy/spicedb/crd.yaml) is installed separately, once per cluster.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: spicedb-operator
+  name: spicedb-operator
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spicedb-operator
+  namespace: spicedb-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spicedb-operator
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - events
+  - jobs
+  - secrets
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - pods
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authzed.com
+  resources:
+  - spicedbclusters
+  - spicedbclusters/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: 'true'
+    rbac.authorization.k8s.io/aggregate-to-edit: 'true'
+  name: spicedb-operator-edit
+rules:
+- apiGroups:
+  - authzed.com
+  resources:
+  - spicedbclusters
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+- apiGroups:
+  - authzed.com
+  resources:
+  - spicedbclusters/status
+  verbs:
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: 'true'
+    rbac.authorization.k8s.io/aggregate-to-edit: 'true'
+    rbac.authorization.k8s.io/aggregate-to-view: 'true'
+  name: spicedb-operator-view
+rules:
+- apiGroups:
+  - authzed.com
+  resources:
+  - spicedbclusters
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spicedb-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spicedb-operator
+subjects:
+- kind: ServiceAccount
+  name: spicedb-operator
+  namespace: spicedb-operator
+---
+apiVersion: v1
+data:
+  update-graph.yaml: "channels:\n- edges:\n    v1.2.0:\n    - v1.3.0\n    - v1.4.0\n\
+    \    - v1.5.0\n    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n\
+    \    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n    v1.3.0:\n\
+    \    - v1.4.0\n    - v1.5.0\n    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n\
+    \    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n\
+    \    v1.4.0:\n    - v1.5.0\n    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n\
+    \    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n\
+    \    v1.5.0:\n    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n\
+    \    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n    v1.6.0:\n\
+    \    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    -\
+    \ v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n    v1.7.0:\n    - v1.7.1\n  \
+    \  - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    -\
+    \ v1.13.0\n    - v1.14.0-phase1\n    v1.7.1:\n    - v1.8.0\n    - v1.9.0\n   \
+    \ - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n\
+    \    v1.8.0:\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    -\
+    \ v1.13.0\n    - v1.14.0-phase1\n    v1.9.0:\n    - v1.10.0\n    - v1.11.0\n \
+    \   - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n    v1.10.0:\n    - v1.11.0\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.0-phase1\n    v1.11.0:\n    - v1.12.0\n\
+    \    - v1.13.0\n    - v1.14.0-phase1\n    v1.12.0:\n    - v1.13.0\n    - v1.14.0-phase1\n\
+    \    v1.13.0:\n    - v1.14.0-phase1\n    v1.14.0:\n    - v1.14.1\n    - v1.15.0\n\
+    \    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n \
+    \   - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n  \
+    \  - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n   \
+    \ - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.14.0-phase1:\n    - v1.14.0-phase2\n\
+    \    v1.14.0-phase2:\n    - v1.14.0\n    v1.14.1:\n    - v1.15.0\n    - v1.16.2\n\
+    \    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n \
+    \   - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n  \
+    \  - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n   \
+    \ - v1.35.3\n    - v1.36.2\n    v1.15.0:\n    - v1.16.2\n    - v1.17.0\n    -\
+    \ v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n \
+    \   - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n  \
+    \  v1.16.0:\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    -\
+    \ v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n\
+    \    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n \
+    \   - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.16.1:\n    - v1.16.2\n   \
+    \ - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    -\
+    \ v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n\
+    \    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n \
+    \   - v1.36.2\n    v1.16.2:\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n   \
+    \ - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    -\
+    \ v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.17.0:\n    - v1.18.0\n  \
+    \  - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n   \
+    \ - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    -\
+    \ v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.18.0:\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n \
+    \   - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.19.1:\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    -\
+    \ v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.21.0:\n  \
+    \  - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n   \
+    \ - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.22.2:\n    - v1.23.1\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n \
+    \   - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n  \
+    \  v1.23.1:\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    -\
+    \ v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n\
+    \    - v1.36.2\n    v1.24.0:\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n  \
+    \  - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n   \
+    \ - v1.35.3\n    - v1.36.2\n    v1.25.0:\n    - v1.26.0\n    - v1.29.5\n    -\
+    \ v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n\
+    \    - v1.36.2\n    v1.26.0:\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.29.5:\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.30.0:\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.31.0:\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.32.0:\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.33.1:\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.34.0:\n    - v1.35.3\n  \
+    \  - v1.36.2\n    v1.35.3:\n    - v1.36.2\n    v1.36.2:\n    - v1.37.1\n    -\
+    \ v1.38.0\n    v1.37.1:\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n\
+    \    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n \
+    \   - v1.52.0\n    - v1.56.2\n    v1.38.0:\n    - v1.39.1\n    - v1.40.1\n   \
+    \ - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    -\
+    \ v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.39.1:\n    - v1.40.1\n    - v1.42.1\n\
+    \    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n \
+    \   - v1.52.0\n    - v1.56.2\n    v1.40.1:\n    - v1.42.1\n    - v1.45.4\n   \
+    \ - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    -\
+    \ v1.56.2\n    v1.42.1:\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n\
+    \    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.45.4:\n    - v1.47.1\n  \
+    \  - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n   \
+    \ v1.47.1:\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    -\
+    \ v1.56.2\n    v1.48.0:\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n\
+    \    v1.49.2:\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.51.1:\n   \
+    \ - v1.52.0\n    - v1.56.2\n    v1.52.0:\n    - v1.56.2\n    v1.54.0:\n    - v1.56.2\n\
+    \  metadata:\n    datastore: postgres\n    default: \"true\"\n  name: stable\n\
+    \  nodes:\n  - id: v1.56.2\n    migration: populate-schema-tables\n    tag: v1.56.2\n\
+    \  - id: v1.54.0\n    migration: populate-schema-tables\n    tag: v1.54.0\n  -\
+    \ id: v1.52.0\n    migration: add-index-for-transaction-gc\n    tag: v1.52.0\n\
+    \  - id: v1.51.1\n    migration: add-index-for-transaction-gc\n    tag: v1.51.1\n\
+    \  - id: v1.49.2\n    migration: add-index-for-transaction-gc\n    tag: v1.49.2\n\
+    \  - id: v1.48.0\n    migration: add-index-for-transaction-gc\n    tag: v1.48.0\n\
+    \  - id: v1.47.1\n    migration: add-index-for-transaction-gc\n    tag: v1.47.1\n\
+    \  - id: v1.45.4\n    migration: add-index-for-transaction-gc\n    tag: v1.45.4\n\
+    \  - id: v1.42.1\n    migration: add-index-for-transaction-gc\n    tag: v1.42.1\n\
+    \  - id: v1.40.1\n    migration: add-index-for-transaction-gc\n    tag: v1.40.1\n\
+    \  - id: v1.39.1\n    migration: add-watch-api-index-to-relation-tuple-table\n\
+    \    tag: v1.39.1\n  - id: v1.38.0\n    migration: add-metadata-to-transaction-table\n\
+    \    tag: v1.38.0\n  - id: v1.37.1\n    migration: create-relationships-counters-table\n\
+    \    tag: v1.37.1\n  - id: v1.36.2\n    migration: create-relationships-counters-table\n\
+    \    tag: v1.36.2\n  - id: v1.35.3\n    migration: create-relationships-counters-table\n\
+    \    tag: v1.35.3\n  - id: v1.34.0\n    migration: create-relationships-counters-table\n\
+    \    tag: v1.34.0\n  - id: v1.33.1\n    migration: add-rel-by-alive-resource-relation-subject\n\
+    \    tag: v1.33.1\n  - id: v1.32.0\n    migration: add-rel-by-alive-resource-relation-subject\n\
+    \    tag: v1.32.0\n  - id: v1.31.0\n    migration: add-rel-by-alive-resource-relation-subject\n\
+    \    tag: v1.31.0\n  - id: v1.30.0\n    migration: add-rel-by-alive-resource-relation-subject\n\
+    \    tag: v1.30.0\n  - id: v1.29.5\n    migration: add-rel-by-alive-resource-relation-subject\n\
+    \    tag: v1.29.5\n  - id: v1.26.0\n    migration: add-rel-by-alive-resource-relation-subject\n\
+    \    tag: v1.26.0\n  - id: v1.25.0\n    migration: add-gc-covering-index\n   \
+    \ tag: v1.25.0\n  - id: v1.24.0\n    migration: add-gc-covering-index\n    tag:\
+    \ v1.24.0\n  - id: v1.23.1\n    migration: add-gc-covering-index\n    tag: v1.23.1\n\
+    \  - id: v1.22.2\n    migration: add-gc-covering-index\n    tag: v1.22.2\n  -\
+    \ id: v1.21.0\n    migration: add-gc-covering-index\n    tag: v1.21.0\n  - id:\
+    \ v1.19.1\n    migration: add-gc-covering-index\n    tag: v1.19.1\n  - id: v1.18.0\n\
+    \    migration: drop-bigserial-ids\n    tag: v1.18.0\n  - id: v1.17.0\n    migration:\
+    \ drop-bigserial-ids\n    tag: v1.17.0\n  - id: v1.16.2\n    migration: drop-bigserial-ids\n\
+    \    tag: v1.16.2\n  - id: v1.16.1\n    migration: drop-bigserial-ids\n    tag:\
+    \ v1.16.1\n  - id: v1.16.0\n    migration: drop-bigserial-ids\n    tag: v1.16.0\n\
+    \  - id: v1.15.0\n    migration: drop-bigserial-ids\n    tag: v1.15.0\n  - id:\
+    \ v1.14.1\n    migration: drop-bigserial-ids\n    tag: v1.14.1\n  - id: v1.14.0\n\
+    \    migration: drop-bigserial-ids\n    tag: v1.14.0\n  - id: v1.14.0-phase2\n\
+    \    migration: add-xid-constraints\n    phase: write-both-read-new\n    tag:\
+    \ v1.14.0\n  - id: v1.14.0-phase1\n    migration: add-xid-columns\n    phase:\
+    \ write-both-read-old\n    tag: v1.14.0\n  - id: v1.13.0\n    migration: add-ns-config-id\n\
+    \    tag: v1.13.0\n  - id: v1.12.0\n    migration: add-ns-config-id\n    tag:\
+    \ v1.12.0\n  - id: v1.11.0\n    migration: add-ns-config-id\n    tag: v1.11.0\n\
+    \  - id: v1.10.0\n    migration: add-ns-config-id\n    tag: v1.10.0\n  - id: v1.9.0\n\
+    \    migration: add-unique-datastore-id\n    tag: v1.9.0\n  - id: v1.8.0\n   \
+    \ migration: add-unique-datastore-id\n    tag: v1.8.0\n  - id: v1.7.1\n    migration:\
+    \ add-unique-datastore-id\n    tag: v1.7.1\n  - id: v1.7.0\n    migration: add-unique-datastore-id\n\
+    \    tag: v1.7.0\n  - id: v1.6.0\n    migration: add-unique-datastore-id\n   \
+    \ tag: v1.6.0\n  - id: v1.5.0\n    migration: add-transaction-timestamp-index\n\
+    \    tag: v1.5.0\n  - id: v1.4.0\n    migration: add-transaction-timestamp-index\n\
+    \    tag: v1.4.0\n  - id: v1.3.0\n    migration: add-transaction-timestamp-index\n\
+    \    tag: v1.3.0\n  - id: v1.2.0\n    migration: add-transaction-timestamp-index\n\
+    \    tag: v1.2.0\n- edges:\n    v1.2.0:\n    - v1.3.0\n    - v1.4.0\n    - v1.5.0\n\
+    \    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    -\
+    \ v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n\
+    \    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n \
+    \   - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n  \
+    \  - v1.30.0-phase1\n    v1.3.0:\n    - v1.4.0\n    - v1.5.0\n    - v1.6.0\n \
+    \   - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    -\
+    \ v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n\
+    \    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n \
+    \   - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n\
+    \    v1.4.0:\n    - v1.5.0\n    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n\
+    \    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n \
+    \   - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n  \
+    \  - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n   \
+    \ - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.5.0:\n    - v1.6.0\n\
+    \    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    -\
+    \ v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n\
+    \    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n \
+    \   - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n\
+    \    v1.6.0:\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0-phase1\n    v1.7.0:\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n  \
+    \  - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n   \
+    \ - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    -\
+    \ v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n\
+    \    - v1.29.5\n    - v1.30.0-phase1\n    v1.7.1:\n    - v1.8.0\n    - v1.9.0\n\
+    \    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n \
+    \   - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n  \
+    \  - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n   \
+    \ - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.8.0:\n    - v1.9.0\n\
+    \    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n \
+    \   - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n  \
+    \  - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n   \
+    \ - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.9.0:\n    - v1.10.0\n\
+    \    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n \
+    \   - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n  \
+    \  - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n   \
+    \ - v1.29.5\n    - v1.30.0-phase1\n    v1.10.0:\n    - v1.11.0\n    - v1.12.0\n\
+    \    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n \
+    \   - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n  \
+    \  - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n\
+    \    v1.11.0:\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n  \
+    \  - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n   \
+    \ - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    -\
+    \ v1.29.5\n    - v1.30.0-phase1\n    v1.12.0:\n    - v1.13.0\n    - v1.14.1\n\
+    \    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n \
+    \   - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n  \
+    \  - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.13.0:\n    - v1.14.1\n\
+    \    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n \
+    \   - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n  \
+    \  - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.14.0:\n    - v1.14.1\n\
+    \    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n \
+    \   - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n  \
+    \  - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.14.1:\n    - v1.15.0\n\
+    \    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n \
+    \   - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n  \
+    \  - v1.29.5\n    - v1.30.0-phase1\n    v1.15.0:\n    - v1.16.2\n    - v1.17.0\n\
+    \    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n \
+    \   - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n\
+    \    v1.16.0:\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n  \
+    \  - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n   \
+    \ - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.16.1:\n    - v1.16.2\n\
+    \    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n \
+    \   - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n  \
+    \  - v1.30.0-phase1\n    v1.16.2:\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n\
+    \    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n \
+    \   - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.17.0:\n    - v1.18.0\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n \
+    \   - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.18.0:\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n \
+    \   - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.19.1:\n\
+    \    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n \
+    \   - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.21.0:\n    - v1.22.2\n\
+    \    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n \
+    \   - v1.30.0-phase1\n    v1.22.2:\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n\
+    \    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.23.1:\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.24.0:\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.25.0:\n\
+    \    - v1.26.0\n    - v1.29.5\n    - v1.30.0-phase1\n    v1.26.0:\n    - v1.29.5\n\
+    \    - v1.30.0-phase1\n    v1.29.5:\n    - v1.30.0-phase1\n    v1.30.0:\n    -\
+    \ v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n\
+    \    v1.30.0-phase1:\n    - v1.30.0\n    v1.31.0:\n    - v1.32.0\n    - v1.33.1\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.32.0:\n    - v1.33.1\n  \
+    \  - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.33.1:\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    v1.34.0:\n    - v1.35.3\n    - v1.36.2\n    v1.35.3:\n\
+    \    - v1.36.2\n    v1.36.2:\n    - v1.37.1\n    - v1.38.0\n    v1.37.1:\n   \
+    \ - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    -\
+    \ v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n\
+    \    v1.38.0:\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n  \
+    \  - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n   \
+    \ - v1.56.2\n    v1.39.1:\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    -\
+    \ v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n\
+    \    v1.40.1:\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n  \
+    \  - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.42.1:\n    -\
+    \ v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n\
+    \    - v1.56.2\n    v1.45.4:\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n  \
+    \  - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.47.1:\n    - v1.48.0\n    -\
+    \ v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.48.0:\n    - v1.49.2\n\
+    \    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.49.2:\n    - v1.51.1\n  \
+    \  - v1.52.0\n    - v1.56.2\n    v1.51.1:\n    - v1.52.0\n    - v1.56.2\n    v1.52.0:\n\
+    \    - v1.56.2\n    v1.54.0:\n    - v1.56.2\n  metadata:\n    datastore: cockroachdb\n\
+    \    default: \"true\"\n  name: stable\n  nodes:\n  - id: v1.56.2\n    migration:\
+    \ populate-schema-tables\n    tag: v1.56.2\n  - id: v1.54.0\n    migration: populate-schema-tables\n\
+    \    tag: v1.54.0\n  - id: v1.52.0\n    migration: add-expiration-support\n  \
+    \  tag: v1.52.0\n  - id: v1.51.1\n    migration: add-expiration-support\n    tag:\
+    \ v1.51.1\n  - id: v1.49.2\n    migration: add-expiration-support\n    tag: v1.49.2\n\
+    \  - id: v1.48.0\n    migration: add-expiration-support\n    tag: v1.48.0\n  -\
+    \ id: v1.47.1\n    migration: add-expiration-support\n    tag: v1.47.1\n  - id:\
+    \ v1.45.4\n    migration: add-expiration-support\n    tag: v1.45.4\n  - id: v1.42.1\n\
+    \    migration: add-expiration-support\n    tag: v1.42.1\n  - id: v1.40.1\n  \
+    \  migration: add-expiration-support\n    tag: v1.40.1\n  - id: v1.39.1\n    migration:\
+    \ add-transaction-metadata-table\n    tag: v1.39.1\n  - id: v1.38.0\n    migration:\
+    \ add-transaction-metadata-table\n    tag: v1.38.0\n  - id: v1.37.1\n    migration:\
+    \ add-integrity-relationtuple-table\n    tag: v1.37.1\n  - id: v1.36.2\n    migration:\
+    \ add-integrity-relationtuple-table\n    tag: v1.36.2\n  - id: v1.35.3\n    migration:\
+    \ add-relationship-counters-table\n    tag: v1.35.3\n  - id: v1.34.0\n    migration:\
+    \ add-relationship-counters-table\n    tag: v1.34.0\n  - id: v1.33.1\n    migration:\
+    \ remove-stats-table\n    tag: v1.33.1\n  - id: v1.32.0\n    migration: remove-stats-table\n\
+    \    tag: v1.32.0\n  - id: v1.31.0\n    migration: remove-stats-table\n    tag:\
+    \ v1.31.0\n  - id: v1.30.0\n    migration: remove-stats-table\n    tag: v1.30.0\n\
+    \  - id: v1.30.0-phase1\n    migration: add-caveats\n    tag: v1.30.0\n  - id:\
+    \ v1.29.5\n    migration: add-caveats\n    tag: v1.29.5\n  - id: v1.26.0\n   \
+    \ migration: add-caveats\n    tag: v1.26.0\n  - id: v1.25.0\n    migration: add-caveats\n\
+    \    tag: v1.25.0\n  - id: v1.24.0\n    migration: add-caveats\n    tag: v1.24.0\n\
+    \  - id: v1.23.1\n    migration: add-caveats\n    tag: v1.23.1\n  - id: v1.22.2\n\
+    \    migration: add-caveats\n    tag: v1.22.2\n  - id: v1.21.0\n    migration:\
+    \ add-caveats\n    tag: v1.21.0\n  - id: v1.19.1\n    migration: add-caveats\n\
+    \    tag: v1.19.1\n  - id: v1.18.0\n    migration: add-caveats\n    tag: v1.18.0\n\
+    \  - id: v1.17.0\n    migration: add-caveats\n    tag: v1.17.0\n  - id: v1.16.2\n\
+    \    migration: add-caveats\n    tag: v1.16.2\n  - id: v1.16.1\n    migration:\
+    \ add-caveats\n    tag: v1.16.1\n  - id: v1.16.0\n    migration: add-caveats\n\
+    \    tag: v1.16.0\n  - id: v1.15.0\n    migration: add-caveats\n    tag: v1.15.0\n\
+    \  - id: v1.14.1\n    migration: add-caveats\n    tag: v1.14.1\n  - id: v1.14.0\n\
+    \    migration: add-caveats\n    tag: v1.14.0\n  - id: v1.13.0\n    migration:\
+    \ add-metadata-and-counters\n    tag: v1.13.0\n  - id: v1.12.0\n    migration:\
+    \ add-metadata-and-counters\n    tag: v1.12.0\n  - id: v1.11.0\n    migration:\
+    \ add-metadata-and-counters\n    tag: v1.11.0\n  - id: v1.10.0\n    migration:\
+    \ add-metadata-and-counters\n    tag: v1.10.0\n  - id: v1.9.0\n    migration:\
+    \ add-metadata-and-counters\n    tag: v1.9.0\n  - id: v1.8.0\n    migration: add-metadata-and-counters\n\
+    \    tag: v1.8.0\n  - id: v1.7.1\n    migration: add-metadata-and-counters\n \
+    \   tag: v1.7.1\n  - id: v1.7.0\n    migration: add-metadata-and-counters\n  \
+    \  tag: v1.7.0\n  - id: v1.6.0\n    migration: add-metadata-and-counters\n   \
+    \ tag: v1.6.0\n  - id: v1.5.0\n    migration: add-transactions-table\n    tag:\
+    \ v1.5.0\n  - id: v1.4.0\n    migration: add-transactions-table\n    tag: v1.4.0\n\
+    \  - id: v1.3.0\n    migration: add-transactions-table\n    tag: v1.3.0\n  - id:\
+    \ v1.2.0\n    migration: add-transactions-table\n    tag: v1.2.0\n- edges:\n \
+    \   v1.7.0:\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    v1.7.1:\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n\
+    \    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n \
+    \   - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n  \
+    \  - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n   \
+    \ - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.8.0:\n    - v1.9.0\n    - v1.10.0\n\
+    \    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n \
+    \   - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n  \
+    \  - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n   \
+    \ - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.9.0:\n    - v1.10.0\n    - v1.11.0\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    v1.10.0:\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n\
+    \    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n \
+    \   - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n  \
+    \  - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n   \
+    \ - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.11.0:\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    v1.12.0:\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n\
+    \    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n \
+    \   - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n  \
+    \  - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n   \
+    \ - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.13.0:\n    - v1.14.1\n    -\
+    \ v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n\
+    \    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n \
+    \   - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n  \
+    \  - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.14.0:\n    - v1.14.1\n    -\
+    \ v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n\
+    \    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n \
+    \   - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n  \
+    \  - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.14.1:\n    - v1.15.0\n    -\
+    \ v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n\
+    \    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n \
+    \   - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n  \
+    \  - v1.35.3\n    - v1.36.2\n    v1.15.0:\n    - v1.16.2\n    - v1.17.0\n    -\
+    \ v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n \
+    \   - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n  \
+    \  v1.16.0:\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    -\
+    \ v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n\
+    \    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n \
+    \   - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.16.1:\n    - v1.16.2\n   \
+    \ - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    -\
+    \ v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n\
+    \    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n \
+    \   - v1.36.2\n    v1.16.2:\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n   \
+    \ - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    -\
+    \ v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.17.0:\n    - v1.18.0\n  \
+    \  - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n   \
+    \ - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    -\
+    \ v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.18.0:\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n \
+    \   - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.19.1:\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    -\
+    \ v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.21.0:\n  \
+    \  - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n   \
+    \ - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.22.2:\n    - v1.23.1\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n \
+    \   - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n  \
+    \  v1.23.1:\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    -\
+    \ v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n\
+    \    - v1.36.2\n    v1.24.0:\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n  \
+    \  - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n   \
+    \ - v1.35.3\n    - v1.36.2\n    v1.25.0:\n    - v1.26.0\n    - v1.29.5\n    -\
+    \ v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n\
+    \    - v1.36.2\n    v1.26.0:\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.29.5:\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.30.0:\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.31.0:\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.32.0:\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.33.1:\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.34.0:\n    - v1.35.3\n  \
+    \  - v1.36.2\n    v1.35.3:\n    - v1.36.2\n    v1.36.2:\n    - v1.37.1\n    -\
+    \ v1.38.0\n    v1.37.1:\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n\
+    \    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n \
+    \   - v1.52.0\n    - v1.56.2\n    v1.38.0:\n    - v1.39.1\n    - v1.40.1\n   \
+    \ - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    -\
+    \ v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.39.1:\n    - v1.40.1\n    - v1.42.1\n\
+    \    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n \
+    \   - v1.52.0\n    - v1.56.2\n    v1.40.1:\n    - v1.42.1\n    - v1.45.4\n   \
+    \ - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    -\
+    \ v1.56.2\n    v1.42.1:\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n\
+    \    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.45.4:\n    - v1.47.1\n  \
+    \  - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n   \
+    \ v1.47.1:\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    -\
+    \ v1.56.2\n    v1.48.0:\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n\
+    \    v1.49.2:\n    - v1.51.1\n    - v1.52.0\n    - v1.56.2\n    v1.51.1:\n   \
+    \ - v1.52.0\n    - v1.56.2\n    v1.52.0:\n    - v1.56.2\n    v1.54.0:\n    - v1.56.2\n\
+    \  metadata:\n    datastore: mysql\n    default: \"true\"\n  name: stable\n  nodes:\n\
+    \  - id: v1.56.2\n    migration: identifiers_case_sensitive\n    tag: v1.56.2\n\
+    \  - id: v1.54.0\n    migration: identifiers_case_sensitive\n    tag: v1.54.0\n\
+    \  - id: v1.52.0\n    migration: add_expiration_to_relation_tuple\n    tag: v1.52.0\n\
+    \  - id: v1.51.1\n    migration: add_expiration_to_relation_tuple\n    tag: v1.51.1\n\
+    \  - id: v1.49.2\n    migration: add_expiration_to_relation_tuple\n    tag: v1.49.2\n\
+    \  - id: v1.48.0\n    migration: add_expiration_to_relation_tuple\n    tag: v1.48.0\n\
+    \  - id: v1.47.1\n    migration: add_expiration_to_relation_tuple\n    tag: v1.47.1\n\
+    \  - id: v1.45.4\n    migration: add_expiration_to_relation_tuple\n    tag: v1.45.4\n\
+    \  - id: v1.42.1\n    migration: add_expiration_to_relation_tuple\n    tag: v1.42.1\n\
+    \  - id: v1.40.1\n    migration: add_expiration_to_relation_tuple\n    tag: v1.40.1\n\
+    \  - id: v1.39.1\n    migration: add_metadata_to_transaction_table\n    tag: v1.39.1\n\
+    \  - id: v1.38.0\n    migration: add_metadata_to_transaction_table\n    tag: v1.38.0\n\
+    \  - id: v1.37.1\n    migration: add_relationship_counters_table\n    tag: v1.37.1\n\
+    \  - id: v1.36.2\n    migration: add_relationship_counters_table\n    tag: v1.36.2\n\
+    \  - id: v1.35.3\n    migration: add_relationship_counters_table\n    tag: v1.35.3\n\
+    \  - id: v1.34.0\n    migration: add_relationship_counters_table\n    tag: v1.34.0\n\
+    \  - id: v1.33.1\n    migration: watch_api_relation_tuple_index\n    tag: v1.33.1\n\
+    \  - id: v1.32.0\n    migration: watch_api_relation_tuple_index\n    tag: v1.32.0\n\
+    \  - id: v1.31.0\n    migration: watch_api_relation_tuple_index\n    tag: v1.31.0\n\
+    \  - id: v1.30.0\n    migration: watch_api_relation_tuple_index\n    tag: v1.30.0\n\
+    \  - id: v1.29.5\n    migration: watch_api_relation_tuple_index\n    tag: v1.29.5\n\
+    \  - id: v1.26.0\n    migration: longblob_definitions\n    tag: v1.26.0\n  - id:\
+    \ v1.25.0\n    migration: longblob_definitions\n    tag: v1.25.0\n  - id: v1.24.0\n\
+    \    migration: extend_object_id\n    tag: v1.24.0\n  - id: v1.23.1\n    migration:\
+    \ extend_object_id\n    tag: v1.23.1\n  - id: v1.22.2\n    migration: extend_object_id\n\
+    \    tag: v1.22.2\n  - id: v1.21.0\n    migration: extend_object_id\n    tag:\
+    \ v1.21.0\n  - id: v1.19.1\n    migration: add_caveat\n    tag: v1.19.1\n  - id:\
+    \ v1.18.0\n    migration: add_caveat\n    tag: v1.18.0\n  - id: v1.17.0\n    migration:\
+    \ add_caveat\n    tag: v1.17.0\n  - id: v1.16.2\n    migration: add_caveat\n \
+    \   tag: v1.16.2\n  - id: v1.16.1\n    migration: add_caveat\n    tag: v1.16.1\n\
+    \  - id: v1.16.0\n    migration: add_caveat\n    tag: v1.16.0\n  - id: v1.15.0\n\
+    \    migration: add_caveat\n    tag: v1.15.0\n  - id: v1.14.1\n    migration:\
+    \ add_caveat\n    tag: v1.14.1\n  - id: v1.14.0\n    migration: add_caveat\n \
+    \   tag: v1.14.0\n  - id: v1.13.0\n    migration: add_ns_config_id\n    tag: v1.13.0\n\
+    \  - id: v1.12.0\n    migration: add_ns_config_id\n    tag: v1.12.0\n  - id: v1.11.0\n\
+    \    migration: add_ns_config_id\n    tag: v1.11.0\n  - id: v1.10.0\n    migration:\
+    \ add_ns_config_id\n    tag: v1.10.0\n  - id: v1.9.0\n    migration: add_unique_datastore_id\n\
+    \    tag: v1.9.0\n  - id: v1.8.0\n    migration: add_unique_datastore_id\n   \
+    \ tag: v1.8.0\n  - id: v1.7.1\n    migration: add_unique_datastore_id\n    tag:\
+    \ v1.7.1\n  - id: v1.7.0\n    migration: add_unique_datastore_id\n    tag: v1.7.0\n\
+    - edges:\n    v1.8.0:\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n\
+    \    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n \
+    \   - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.9.0:\n\
+    \    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n \
+    \   - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n  \
+    \  - v1.21.0\n    - v1.22.2-phase1\n    v1.10.0:\n    - v1.11.0\n    - v1.12.0\n\
+    \    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n \
+    \   - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.11.0:\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n\
+    \    v1.12.0:\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n  \
+    \  - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n\
+    \    v1.13.0:\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n  \
+    \  - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.14.0:\n\
+    \    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n \
+    \   - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.14.1:\n    - v1.15.0\n\
+    \    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n \
+    \   - v1.22.2-phase1\n    v1.15.0:\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.16.0:\n    - v1.16.2\n\
+    \    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n\
+    \    v1.16.1:\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n  \
+    \  - v1.21.0\n    - v1.22.2-phase1\n    v1.16.2:\n    - v1.17.0\n    - v1.18.0\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.17.0:\n    - v1.18.0\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2-phase1\n    v1.18.0:\n    - v1.19.1\n\
+    \    - v1.21.0\n    - v1.22.2-phase1\n    v1.19.1:\n    - v1.21.0\n    - v1.22.2-phase1\n\
+    \    v1.21.0:\n    - v1.22.2-phase1\n    v1.22.2:\n    - v1.23.1\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5-phase1\n    v1.22.2-phase1:\n   \
+    \ - v1.22.2-phase2\n    v1.22.2-phase2:\n    - v1.22.2\n    v1.23.1:\n    - v1.24.0\n\
+    \    - v1.25.0\n    - v1.26.0\n    - v1.29.5-phase1\n    v1.24.0:\n    - v1.25.0\n\
+    \    - v1.26.0\n    - v1.29.5-phase1\n    v1.25.0:\n    - v1.26.0\n    - v1.29.5-phase1\n\
+    \    v1.26.0:\n    - v1.29.5-phase1\n    v1.29.5:\n    - v1.30.0\n    - v1.31.0\n\
+    \    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n \
+    \   v1.29.5-phase1:\n    - v1.29.5\n    v1.30.0:\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.31.0:\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ v1.32.0:\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.33.1:\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    v1.34.0:\n    - v1.35.3\n  \
+    \  - v1.36.2\n    v1.35.3:\n    - v1.36.2\n    v1.36.2:\n    - v1.37.1\n    -\
+    \ v1.38.0\n    v1.37.1:\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n\
+    \    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n \
+    \   - v1.56.2\n    v1.38.0:\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n   \
+    \ - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    -\
+    \ v1.56.2\n    v1.39.1:\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n\
+    \    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.56.2\n    v1.40.1:\n  \
+    \  - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n   \
+    \ - v1.51.1\n    - v1.56.2\n    v1.42.1:\n    - v1.45.4\n    - v1.47.1\n    -\
+    \ v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.56.2\n    v1.45.4:\n    - v1.47.1\n\
+    \    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.56.2\n    v1.47.1:\n  \
+    \  - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.56.2\n    v1.48.0:\n    -\
+    \ v1.49.2\n    - v1.51.1\n    - v1.56.2\n    v1.49.2:\n    - v1.51.1\n    - v1.56.2\n\
+    \    v1.51.1:\n    - v1.56.2\n    v1.54.0:\n    - v1.56.2\n  metadata:\n    datastore:\
+    \ spanner\n    default: \"true\"\n  name: stable\n  nodes:\n  - id: v1.56.2\n\
+    \    migration: populate-schema-tables\n    tag: v1.56.2\n  - id: v1.54.0\n  \
+    \  migration: populate-schema-tables\n    tag: v1.54.0\n  - id: v1.51.1\n    migration:\
+    \ add-expiration-support\n    tag: v1.52.0\n  - id: v1.49.2\n    migration: add-expiration-support\n\
+    \    tag: v1.51.1\n  - id: v1.48.0\n    migration: add-expiration-support\n  \
+    \  tag: v1.48.0\n  - id: v1.47.1\n    migration: add-expiration-support\n    tag:\
+    \ v1.47.1\n  - id: v1.45.4\n    migration: add-expiration-support\n    tag: v1.45.4\n\
+    \  - id: v1.42.1\n    migration: add-expiration-support\n    tag: v1.42.1\n  -\
+    \ id: v1.40.1\n    migration: add-expiration-support\n    tag: v1.40.1\n  - id:\
+    \ v1.39.1\n    migration: add-transaction-metadata-table\n    tag: v1.39.1\n \
+    \ - id: v1.38.0\n    migration: add-transaction-metadata-table\n    tag: v1.38.0\n\
+    \  - id: v1.37.1\n    migration: add-relationship-counter-table\n    tag: v1.37.1\n\
+    \  - id: v1.36.2\n    migration: add-relationship-counter-table\n    tag: v1.36.2\n\
+    \  - id: v1.35.3\n    migration: add-relationship-counter-table\n    tag: v1.35.3\n\
+    \  - id: v1.34.0\n    migration: add-relationship-counter-table\n    tag: v1.34.0\n\
+    \  - id: v1.33.1\n    migration: delete-older-changestreams\n    tag: v1.33.1\n\
+    \  - id: v1.32.0\n    migration: delete-older-changestreams\n    tag: v1.32.0\n\
+    \  - id: v1.31.0\n    migration: delete-older-changestreams\n    tag: v1.31.0\n\
+    \  - id: v1.30.0\n    migration: delete-older-changestreams\n    tag: v1.30.0\n\
+    \  - id: v1.29.5\n    migration: delete-older-changestreams\n    tag: v1.29.5\n\
+    \  - id: v1.29.5-phase1\n    migration: register-combined-change-stream\n    tag:\
+    \ v1.29.5\n  - id: v1.26.0\n    migration: drop-changelog-table\n    tag: v1.26.0\n\
+    \  - id: v1.25.0\n    migration: drop-changelog-table\n    tag: v1.25.0\n  - id:\
+    \ v1.24.0\n    migration: drop-changelog-table\n    tag: v1.24.0\n  - id: v1.23.1\n\
+    \    migration: drop-changelog-table\n    tag: v1.23.1\n  - id: v1.22.2\n    migration:\
+    \ drop-changelog-table\n    tag: v1.22.2\n  - id: v1.22.2-phase2\n    migration:\
+    \ register-tuple-change-stream\n    phase: write-changelog-read-stream\n    tag:\
+    \ v1.22.2\n  - id: v1.22.2-phase1\n    migration: register-tuple-change-stream\n\
+    \    phase: write-changelog-read-changelog\n    tag: v1.22.2\n  - id: v1.21.0\n\
+    \    migration: add-caveats\n    tag: v1.21.0\n  - id: v1.19.1\n    migration:\
+    \ add-caveats\n    tag: v1.19.1\n  - id: v1.18.0\n    migration: add-caveats\n\
+    \    tag: v1.18.0\n  - id: v1.17.0\n    migration: add-caveats\n    tag: v1.17.0\n\
+    \  - id: v1.16.2\n    migration: add-caveats\n    tag: v1.16.2\n  - id: v1.16.1\n\
+    \    migration: add-caveats\n    tag: v1.16.1\n  - id: v1.16.0\n    migration:\
+    \ add-caveats\n    tag: v1.16.0\n  - id: v1.15.0\n    migration: add-caveats\n\
+    \    tag: v1.15.0\n  - id: v1.14.1\n    migration: add-caveats\n    tag: v1.14.1\n\
+    \  - id: v1.14.0\n    migration: add-caveats\n    tag: v1.14.0\n  - id: v1.13.0\n\
+    \    migration: add-metadata-and-counters\n    tag: v1.13.0\n  - id: v1.12.0\n\
+    \    migration: add-metadata-and-counters\n    tag: v1.12.0\n  - id: v1.11.0\n\
+    \    migration: add-metadata-and-counters\n    tag: v1.11.0\n  - id: v1.10.0\n\
+    \    migration: add-metadata-and-counters\n    tag: v1.10.0\n  - id: v1.9.0\n\
+    \    migration: add-metadata-and-counters\n    tag: v1.9.0\n  - id: v1.8.0\n \
+    \   migration: add-metadata-and-counters\n    tag: v1.8.0\n- edges:\n    v1.2.0:\n\
+    \    - v1.3.0\n    - v1.4.0\n    - v1.5.0\n    - v1.6.0\n    - v1.7.1\n    - v1.8.0\n\
+    \    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n  \
+    \  - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n   \
+    \ - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    -\
+    \ v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n \
+    \   - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n  \
+    \  - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n   \
+    \ - v1.54.0\n    - v1.56.2\n    v1.3.0:\n    - v1.4.0\n    - v1.5.0\n    - v1.6.0\n\
+    \    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    -\
+    \ v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n\
+    \    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n \
+    \   - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n  \
+    \  - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n   \
+    \ - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    -\
+    \ v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n\
+    \    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.4.0:\n    - v1.5.0\n    -\
+    \ v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n\
+    \    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n \
+    \   - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.5.0:\n    -\
+    \ v1.6.0\n    - v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n\
+    \    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n \
+    \   - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n\
+    \    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n \
+    \   - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.6.0:\n    -\
+    \ v1.7.1\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n\
+    \    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n \
+    \   - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n  \
+    \  - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n   \
+    \ - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    -\
+    \ v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n\
+    \    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n \
+    \   - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.7.0:\n    - v1.7.1\n    -\
+    \ v1.8.0\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n\
+    \    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n \
+    \   - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n  \
+    \  - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n   \
+    \ - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    -\
+    \ v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n\
+    \    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n \
+    \   - v1.54.0\n    - v1.56.2\n    v1.7.1:\n    - v1.8.0\n    - v1.9.0\n    - v1.10.0\n\
+    \    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n \
+    \   - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n  \
+    \  - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n   \
+    \ - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n\
+    \    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n \
+    \   - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n  \
+    \  v1.8.0:\n    - v1.9.0\n    - v1.10.0\n    - v1.11.0\n    - v1.12.0\n    - v1.13.0\n\
+    \    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n \
+    \   - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n  \
+    \  - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n   \
+    \ - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    -\
+    \ v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n\
+    \    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n \
+    \   - v1.54.0\n    - v1.56.2\n    v1.9.0:\n    - v1.10.0\n    - v1.11.0\n    -\
+    \ v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n\
+    \    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n \
+    \   - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n  \
+    \  - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n   \
+    \ - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    -\
+    \ v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n\
+    \    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.10.0:\n    - v1.11.0\n  \
+    \  - v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n   \
+    \ - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    -\
+    \ v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n\
+    \    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n \
+    \   - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n  \
+    \  - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n   \
+    \ - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.11.0:\n    -\
+    \ v1.12.0\n    - v1.13.0\n    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n\
+    \    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n \
+    \   - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n  \
+    \  - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n   \
+    \ - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    -\
+    \ v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n\
+    \    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.12.0:\n    - v1.13.0\n  \
+    \  - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n   \
+    \ - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    -\
+    \ v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n \
+    \   - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n  \
+    \  - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n   \
+    \ - v1.54.0\n    - v1.56.2\n    v1.13.0:\n    - v1.14.1\n    - v1.15.0\n    -\
+    \ v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n\
+    \    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n \
+    \   - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n  \
+    \  - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n   \
+    \ - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    -\
+    \ v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.14.0:\n\
+    \    - v1.14.1\n    - v1.15.0\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n \
+    \   - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n  \
+    \  - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n   \
+    \ - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    -\
+    \ v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n\
+    \    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n \
+    \   - v1.54.0\n    - v1.56.2\n    v1.14.1:\n    - v1.15.0\n    - v1.16.2\n   \
+    \ - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    -\
+    \ v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n\
+    \    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n \
+    \   - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n  \
+    \  - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n   \
+    \ - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.15.0:\n    -\
+    \ v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n\
+    \    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n \
+    \   - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n  \
+    \  - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n   \
+    \ - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    -\
+    \ v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.16.0:\n\
+    \    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n \
+    \   - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n  \
+    \  - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n   \
+    \ - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    -\
+    \ v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n\
+    \    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n \
+    \   v1.16.1:\n    - v1.16.2\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n   \
+    \ - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    -\
+    \ v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n\
+    \    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n \
+    \   - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n  \
+    \  - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n   \
+    \ - v1.56.2\n    v1.16.2:\n    - v1.17.0\n    - v1.18.0\n    - v1.19.1\n    -\
+    \ v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n\
+    \    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n \
+    \   - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n  \
+    \  - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n   \
+    \ - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    -\
+    \ v1.56.2\n    v1.17.0:\n    - v1.18.0\n    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n\
+    \    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n \
+    \   - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n  \
+    \  - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n   \
+    \ - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    -\
+    \ v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.18.0:\n\
+    \    - v1.19.1\n    - v1.21.0\n    - v1.22.2\n    - v1.23.1\n    - v1.24.0\n \
+    \   - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n  \
+    \  - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n   \
+    \ - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    -\
+    \ v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n\
+    \    - v1.54.0\n    - v1.56.2\n    v1.19.1:\n    - v1.21.0\n    - v1.22.2\n  \
+    \  - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n   \
+    \ - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n\
+    \    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n \
+    \   - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.21.0:\n   \
+    \ - v1.22.2\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    -\
+    \ v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n\
+    \    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n \
+    \   - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n  \
+    \  - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n   \
+    \ v1.22.2:\n    - v1.23.1\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    -\
+    \ v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n\
+    \    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n \
+    \   - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n  \
+    \  - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n   \
+    \ v1.23.1:\n    - v1.24.0\n    - v1.25.0\n    - v1.26.0\n    - v1.29.5\n    -\
+    \ v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n\
+    \    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n \
+    \   - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n  \
+    \  - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.24.0:\n    -\
+    \ v1.25.0\n    - v1.26.0\n    - v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n\
+    \    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n \
+    \   - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n  \
+    \  - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n   \
+    \ - v1.54.0\n    - v1.56.2\n    v1.25.0:\n    - v1.26.0\n    - v1.29.5\n    -\
+    \ v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n\
+    \    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n \
+    \   - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n  \
+    \  - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.26.0:\n    -\
+    \ v1.29.5\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n\
+    \    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n \
+    \   - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n  \
+    \  - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n   \
+    \ v1.29.5:\n    - v1.30.0\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    -\
+    \ v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n\
+    \    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n \
+    \   - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n  \
+    \  v1.30.0:\n    - v1.31.0\n    - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    -\
+    \ v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n\
+    \    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n \
+    \   - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.31.0:\n   \
+    \ - v1.32.0\n    - v1.33.1\n    - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    -\
+    \ v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n\
+    \    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n \
+    \   - v1.54.0\n    - v1.56.2\n    v1.32.0:\n    - v1.33.1\n    - v1.34.0\n   \
+    \ - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    -\
+    \ v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n\
+    \    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.33.1:\n  \
+    \  - v1.34.0\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n   \
+    \ - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    -\
+    \ v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n\
+    \    v1.34.0:\n    - v1.35.3\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n  \
+    \  - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n   \
+    \ - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    -\
+    \ v1.56.2\n    v1.35.3:\n    - v1.36.2\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n\
+    \    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n \
+    \   - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n  \
+    \  v1.36.2:\n    - v1.37.1\n    - v1.38.0\n    - v1.39.1\n    - v1.40.1\n    -\
+    \ v1.42.1\n    - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n\
+    \    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.37.1:\n    - v1.38.0\n  \
+    \  - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n    - v1.47.1\n   \
+    \ - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    -\
+    \ v1.56.2\n    v1.38.0:\n    - v1.39.1\n    - v1.40.1\n    - v1.42.1\n    - v1.45.4\n\
+    \    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n \
+    \   - v1.54.0\n    - v1.56.2\n    v1.39.1:\n    - v1.40.1\n    - v1.42.1\n   \
+    \ - v1.45.4\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    -\
+    \ v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.40.1:\n    - v1.42.1\n    - v1.45.4\n\
+    \    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n \
+    \   - v1.54.0\n    - v1.56.2\n    v1.42.1:\n    - v1.45.4\n    - v1.47.1\n   \
+    \ - v1.48.0\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    -\
+    \ v1.56.2\n    v1.45.4:\n    - v1.47.1\n    - v1.48.0\n    - v1.49.2\n    - v1.51.1\n\
+    \    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.47.1:\n    - v1.48.0\n  \
+    \  - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n   \
+    \ v1.48.0:\n    - v1.49.2\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    -\
+    \ v1.56.2\n    v1.49.2:\n    - v1.51.1\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n\
+    \    v1.51.1:\n    - v1.52.0\n    - v1.54.0\n    - v1.56.2\n    v1.52.0:\n   \
+    \ - v1.54.0\n    - v1.56.2\n    v1.54.0:\n    - v1.56.2\n  metadata:\n    datastore:\
+    \ memory\n    default: \"true\"\n  name: stable\n  nodes:\n  - id: v1.56.2\n \
+    \   tag: v1.56.2\n  - id: v1.54.0\n    tag: v1.54.0\n  - id: v1.52.0\n    tag:\
+    \ v1.52.0\n  - id: v1.51.1\n    tag: v1.51.1\n  - id: v1.49.2\n    tag: v1.49.2\n\
+    \  - id: v1.48.0\n    tag: v1.48.0\n  - id: v1.47.1\n    tag: v1.47.1\n  - id:\
+    \ v1.45.4\n    tag: v1.45.4\n  - id: v1.42.1\n    tag: v1.42.1\n  - id: v1.40.1\n\
+    \    tag: v1.40.1\n  - id: v1.39.1\n    tag: v1.39.1\n  - id: v1.38.0\n    tag:\
+    \ v1.38.0\n  - id: v1.37.1\n    tag: v1.37.1\n  - id: v1.36.2\n    tag: v1.36.2\n\
+    \  - id: v1.35.3\n    tag: v1.35.3\n  - id: v1.34.0\n    tag: v1.34.0\n  - id:\
+    \ v1.33.1\n    tag: v1.33.1\n  - id: v1.32.0\n    tag: v1.32.0\n  - id: v1.31.0\n\
+    \    tag: v1.31.0\n  - id: v1.30.0\n    tag: v1.30.0\n  - id: v1.29.5\n    tag:\
+    \ v1.29.5\n  - id: v1.26.0\n    tag: v1.26.0\n  - id: v1.25.0\n    tag: v1.25.0\n\
+    \  - id: v1.24.0\n    tag: v1.24.0\n  - id: v1.23.1\n    tag: v1.23.1\n  - id:\
+    \ v1.22.2\n    tag: v1.22.2\n  - id: v1.21.0\n    tag: v1.21.0\n  - id: v1.19.1\n\
+    \    tag: v1.19.1\n  - id: v1.18.0\n    tag: v1.18.0\n  - id: v1.17.0\n    tag:\
+    \ v1.17.0\n  - id: v1.16.2\n    tag: v1.16.2\n  - id: v1.16.1\n    tag: v1.16.1\n\
+    \  - id: v1.16.0\n    tag: v1.16.0\n  - id: v1.15.0\n    tag: v1.15.0\n  - id:\
+    \ v1.14.1\n    tag: v1.14.1\n  - id: v1.14.0\n    tag: v1.14.0\n  - id: v1.13.0\n\
+    \    tag: v1.13.0\n  - id: v1.12.0\n    tag: v1.12.0\n  - id: v1.11.0\n    tag:\
+    \ v1.11.0\n  - id: v1.10.0\n    tag: v1.10.0\n  - id: v1.9.0\n    tag: v1.9.0\n\
+    \  - id: v1.8.0\n    tag: v1.8.0\n  - id: v1.7.1\n    tag: v1.7.1\n  - id: v1.7.0\n\
+    \    tag: v1.7.0\n  - id: v1.6.0\n    tag: v1.6.0\n  - id: v1.5.0\n    tag: v1.5.0\n\
+    \  - id: v1.4.0\n    tag: v1.4.0\n  - id: v1.3.0\n    tag: v1.3.0\n  - id: v1.2.0\n\
+    \    tag: v1.2.0\nimageName: ghcr.io/authzed/spicedb\n"
+kind: ConfigMap
+metadata:
+  name: update-graph
+  namespace: spicedb-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: spicedb-operator
+    app.kubernetes.io/instance: spicedb-operator
+  name: spicedb-operator
+  namespace: spicedb-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spicedb-operator
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: spicedb-operator
+        app.kubernetes.io/instance: spicedb-operator
+    spec:
+      containers:
+      - args:
+        - run
+        - -v=4
+        - --crd=false
+        - --config
+        - /opt/operator/update-graph.yaml
+        image: ghcr.io/authzed/spicedb-operator:v1.27.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 15
+        name: spicedb-operator
+        ports:
+        - containerPort: 8080
+          name: prometheus
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 1
+          successThreshold: 1
+          timeoutSeconds: 15
+        resources:
+          requests:
+            memory: 256Mi
+          limits:
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 65532
+          runAsNonRoot: true
+          runAsUser: 65532
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /opt/operator
+          name: config
+          readOnly: true
+      securityContext:
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: spicedb-operator
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: update-graph
+        name: config
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spicedb-operator-nonroot-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:nonroot-v2
+subjects:
+- kind: ServiceAccount
+  name: spicedb-operator
+  namespace: spicedb-operator

@@ -473,7 +473,8 @@ def run_eval_op(
     os.environ["TRINO_QUERY_HOST"] = trino_host
     os.environ["TRINO_QUERY_PORT"] = str(trino_port)
     # Build judge chat/completions URL from the base URL.
-    # llm_base_url includes /v1 (e.g. .../gemma4/v1) — keep it.
+    # Body-based MaaS routing: llm_base_url is the shared /v1 root and the
+    # model (FULL publisher path) goes in the request body.
     judge_base = llm_base_url.rstrip("/")
     judge_chat_url = judge_base + "/chat/completions"
     print(f"Judge endpoint: {judge_chat_url}")
@@ -794,12 +795,12 @@ def report_results_op(metrics: dict, mlflow_tracking_uri: str) -> str:
 )
 def nndss_eval_pipeline(
     mlflow_tracking_uri: str = "https://mlflow.redhat-ods-applications.svc:8443/mlflow",
-    mlflow_workspace: str = "nndss-agent",
+    mlflow_workspace: str = "nndss",
     mlflow_experiment_name: str = "nndss-data-agent",
     dataset_name: str = "nndss_health_eval",
-    llm_base_url: str = "http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/gemma4/v1",
-    agent_model: str = "qwen36-27b",
-    judge_model: str = "gemma4",
+    llm_base_url: str = "https://maas.apps.ocp.cloud.rhai-tmm.dev/v1",
+    agent_model: str = "publishers/prelude-maas/models/glm-53-flash",
+    judge_model: str = "publishers/prelude-maas/models/gemma4",
     trino_host: str = "trino.nndss-agent.svc.cluster.local",
     trino_port: int = 8080,
     llm_secret_name: str = "nndss-agent-maas-key",

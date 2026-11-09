@@ -23,9 +23,9 @@ spec:
               name: http
           env:
             - name: MODEL_NAME
-              value: "qwen38-27b"
+              value: "publishers/prelude-maas/models/glm-53-flash"
             - name: MODEL_ENDPOINT
-              value: "https://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen38-27b/v1"
+              value: "https://maas.apps.ocp.cloud.rhai-tmm.dev/v1"
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -38,7 +38,7 @@ spec:
             - name: MLFLOW_TRACKING_URI
               value: "https://mlflow.redhat-ods-applications.svc:8443/mlflow"
             - name: MLFLOW_WORKSPACE
-              value: "nndss-agent"
+              value: "nndss"
             - name: MLFLOW_EXPERIMENT_NAME
               value: "nndss-data-agent"
             - name: MLFLOW_TRACKING_TOKEN_FILE

@@ -28,7 +28,7 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ---------------------------------------------------------------------------
 OPENAI_API_KEY=${OPENAI_API_KEY:-}
 OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-OPENAI_MODEL=${OPENAI_MODEL:-llama-4-scout-17b-16e-w4a16}
+OPENAI_MODEL=${OPENAI_MODEL:-publishers/prelude-maas/models/glm-53-flash}
 S3_ACCESS_KEY=${S3_ACCESS_KEY:-minio}
 S3_SECRET_KEY=${S3_SECRET_KEY:-minio1234}
 S3_BUCKET=${S3_BUCKET:-warehouse}
@@ -186,7 +186,9 @@ spec:
         runAsNonRoot: true
       containers:
         - name: mc
-          image: docker.io/minio/mc:latest
+          # minio/mc images were removed from docker.io (archive) — pgsty/silo
+          # ships mc at /usr/bin/mc
+          image: pgsty/silo:latest
           command: ["sh", "-c"]
           args:
             - |
@@ -535,7 +537,7 @@ Required environment variables:
   HF_TOKEN             HuggingFace token (or set SKIP_DATA=true)
 
 Optional:
-  OPENAI_MODEL         Model name (default: llama-4-scout-17b-16e-w4a16)
+  OPENAI_MODEL         Model name (default: publishers/prelude-maas/models/glm-53-flash)
   S3_ACCESS_KEY        MinIO access key (default: minio)
   S3_SECRET_KEY        MinIO secret key (default: minio1234)
   S3_BUCKET            S3 bucket name (default: warehouse)

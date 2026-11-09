@@ -2,14 +2,14 @@
 # Name: nndss-health-agent-evaluation
 # Description: Evaluate NNDSS agent on 7 capability dimensions using LLM-as-judge
 # Inputs:
-#    agent_model: str [Default: 'qwen36-27b']
+#    agent_model: str [Default: 'publishers/prelude-maas/models/glm-53-flash']
 #    dataset_name: str [Default: 'nndss_health_eval']
-#    judge_model: str [Default: 'gemma4']
-#    llm_base_url: str [Default: 'http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/gemma4/v1']
+#    judge_model: str [Default: 'publishers/prelude-maas/models/gemma4']
+#    llm_base_url: str [Default: 'https://maas.apps.ocp.cloud.rhai-tmm.dev/v1']
 #    llm_secret_name: str [Default: 'nndss-agent-maas-key']
 #    mlflow_experiment_name: str [Default: 'nndss-data-agent']
 #    mlflow_tracking_uri: str [Default: 'https://mlflow.redhat-ods-applications.svc:8443/mlflow']
-#    mlflow_workspace: str [Default: 'nndss-agent']
+#    mlflow_workspace: str [Default: 'nndss']
 #    trino_host: str [Default: 'trino.nndss-agent.svc.cluster.local']
 #    trino_port: int [Default: 8080.0]
 components:
@@ -505,8 +505,9 @@ deploymentSpec:
           MLFLOW_GENAI_EVAL_MAX_RETRIES\"] = \"3\"\n    os.environ[\"MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION\"\
           ] = \"True\"\n    os.environ[\"TRINO_QUERY_HOST\"] = trino_host\n    os.environ[\"\
           TRINO_QUERY_PORT\"] = str(trino_port)\n    # Build judge chat/completions\
-          \ URL from the base URL.\n    # llm_base_url includes /v1 (e.g. .../gemma4/v1)\
-          \ \u2014 keep it.\n    judge_base = llm_base_url.rstrip(\"/\")\n    judge_chat_url\
+          \ URL from the base URL.\n    # Body-based MaaS routing: llm_base_url is\
+          \ the shared /v1 root and the\n    # model (FULL publisher path) goes in\
+          \ the request body.\n    judge_base = llm_base_url.rstrip(\"/\")\n    judge_chat_url\
           \ = judge_base + \"/chat/completions\"\n    print(f\"Judge endpoint: {judge_chat_url}\"\
           )\n\n    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path\
           \ = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\")\n    \
@@ -849,7 +850,7 @@ root:
   inputDefinitions:
     parameters:
       agent_model:
-        defaultValue: qwen36-27b
+        defaultValue: publishers/prelude-maas/models/glm-53-flash
         isOptional: true
         parameterType: STRING
       dataset_name:
@@ -857,11 +858,11 @@ root:
         isOptional: true
         parameterType: STRING
       judge_model:
-        defaultValue: gemma4
+        defaultValue: publishers/prelude-maas/models/gemma4
         isOptional: true
         parameterType: STRING
       llm_base_url:
-        defaultValue: http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/gemma4/v1
+        defaultValue: https://maas.apps.ocp.cloud.rhai-tmm.dev/v1
         isOptional: true
         parameterType: STRING
       llm_secret_name:
@@ -877,7 +878,7 @@ root:
         isOptional: true
         parameterType: STRING
       mlflow_workspace:
-        defaultValue: nndss-agent
+        defaultValue: nndss
         isOptional: true
         parameterType: STRING
       trino_host:

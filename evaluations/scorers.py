@@ -63,7 +63,7 @@ def get_capability_scorers(judge_model: str) -> list:
     """Create LLM-as-Judge scorers for 7 capability dimensions.
 
     Args:
-        judge_model: MLflow model format, e.g. "openai:/gemma4"
+        judge_model: MLflow model format, e.g. "openai:/publishers/prelude-maas/models/gemma4"
     """
     return [
         Guidelines(

@@ -24,10 +24,10 @@ def create_predict_fn(
         trino_host: Trino host (default from env)
         trino_port: Trino port (default from env)
     """
-    _model_name = model_name or os.environ.get("MODEL_NAME", "qwen36-27b")
+    _model_name = model_name or os.environ.get("MODEL_NAME", "publishers/prelude-maas/models/glm-53-flash")
     _model_endpoint = model_endpoint or os.environ.get(
         "MODEL_ENDPOINT",
-        "http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/qwen36-27b/v1",
+        "https://maas.apps.ocp.cloud.rhai-tmm.dev/v1",
     )
     _trino_host = trino_host or os.environ.get("TRINO_QUERY_HOST", "trino")
     _trino_port = trino_port or int(os.environ.get("TRINO_QUERY_PORT", "8080"))

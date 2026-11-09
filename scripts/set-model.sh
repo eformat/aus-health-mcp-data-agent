@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Switch the agent model in deployment.yaml and eval-submit.sh.
-# Usage: ./scripts/set-model.sh <model-name>
+# MaaS body-based routing: MODEL_ENDPOINT is the shared /v1 root and the
+# model is the FULL publisher path (publishers/<ns>/models/<name>), sent
+# in the request body's "model" field.
+# Usage: ./scripts/set-model.sh <full-publisher-path>
+#   e.g. ./scripts/set-model.sh publishers/prelude-maas/models/glm-53-flash
 set -euo pipefail
 
-MODEL="${1:?Usage: $0 <model-name>  e.g. kimi-k2-6}"
+MODEL="${1:?Usage: $0 <full-publisher-path>  e.g. publishers/prelude-maas/models/glm-53-flash}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-MAAS_BASE_URL="${MAAS_BASE_URL:-http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas}"
+MAAS_BASE_URL="${MAAS_BASE_URL:-https://maas.apps.ocp.cloud.rhai-tmm.dev/v1}"
 
 DEPLOY="${REPO_DIR}/agents/nndss-agent/deploy/deployment.yaml"
 EVAL="${REPO_DIR}/scripts/eval-submit.sh"
@@ -23,10 +27,10 @@ content = re.sub(
     r'\1\"${MODEL}\"',
     content)
 
-# Replace MODEL_ENDPOINT value
+# Replace MODEL_ENDPOINT value — shared /v1 root, no model suffix
 content = re.sub(
     r'(- name: MODEL_ENDPOINT\n\s+value: )\"[^\"]+\"',
-    r'\1\"${MAAS_BASE_URL}/${MODEL}/v1\"',
+    r'\1\"${MAAS_BASE_URL}\"',
     content)
 
 open('${DEPLOY}', 'w').write(content)

@@ -8,6 +8,8 @@
 # Usage:
 #   export MAAS_API_KEY=<jwt_token>
 #   ./scripts/deploy-all.sh
+#   NAMESPACE=user-mhepburn MINIO_NAMESPACE=user-mhepburn ./scripts/deploy-all.sh
+#   SPICEDB_OPERATOR_SCOPE=namespaced ./scripts/deploy-all.sh   # shared clusters
 #
 set -euo pipefail
 
@@ -24,7 +26,10 @@ fi
 NAMESPACE="${NAMESPACE:-nndss-agent}"
 MINIO_NAMESPACE="${MINIO_NAMESPACE:-minio}"
 MAAS_API_KEY="${MAAS_API_KEY:-}"
-MAAS_BASE_URL="${MAAS_BASE_URL:-http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas}"
+# MaaS body-based routing: single /v1 endpoint, model selected by the
+# FULL publisher path in the request body's "model" field.
+MAAS_BASE_URL="${MAAS_BASE_URL:-https://maas.apps.ocp.cloud.rhai-tmm.dev/v1}"
+AGENT_MODEL="${AGENT_MODEL:-publishers/prelude-maas/models/glm-53-flash}"
 
 echo "============================================"
 echo "  NNDSS Health Agent — Full Deployment"
@@ -38,8 +43,17 @@ echo "==> 1. Creating namespace: ${NAMESPACE}"
 oc new-project "${NAMESPACE}" 2>/dev/null || oc project "${NAMESPACE}"
 
 # ── 2. Deploy MinIO ───────────────────────────────────────────
-echo "==> 2. Deploying MinIO"
-oc apply -k "${REPO_DIR}/deploy/minio/overlays/cluster-dev"
+echo "==> 2. Deploying MinIO (namespace: ${MINIO_NAMESPACE})"
+# Jobs are immutable — remove any completed run from a previous deploy first
+oc delete job minio-configure -n "${MINIO_NAMESPACE}" --ignore-not-found=true 2>/dev/null || true
+# cluster-dev creates+targets its own "minio" namespace; when MinIO shares
+# the stack namespace use the in-namespace overlay (no namespace transform)
+if [ "${MINIO_NAMESPACE}" = "${NAMESPACE}" ]; then
+  MINIO_OVERLAY="overlays/in-namespace"
+else
+  MINIO_OVERLAY="overlays/cluster-dev"
+fi
+oc apply -k "${REPO_DIR}/deploy/minio/${MINIO_OVERLAY}" -n "${MINIO_NAMESPACE}"
 echo "Waiting for MinIO..."
 oc rollout status deployment/minio -n "${MINIO_NAMESPACE}" --timeout=120s
 
@@ -78,8 +92,8 @@ SKIP_MINIO=true SKIP_DATA=true SKIP_UI=true \
   MINIO_NAMESPACE="${MINIO_NAMESPACE}" \
   TRINO_NAMESPACE="${NAMESPACE}" \
   OPENAI_API_KEY="${MAAS_API_KEY}" \
-  OPENAI_BASE_URL="${MAAS_BASE_URL}/qwen36-27b" \
-  OPENAI_MODEL="qwen36-27b" \
+  OPENAI_BASE_URL="${MAAS_BASE_URL}" \
+  OPENAI_MODEL="${AGENT_MODEL}" \
   S3_BUCKET="nndss-data" \
   ./install.sh
 cd "${REPO_DIR}"
@@ -96,6 +110,10 @@ TRINO_HOST=localhost TRINO_PORT=8090 \
 
 TRINO_HOST=localhost TRINO_PORT=8090 \
   $PYTHON "${REPO_DIR}/scripts/load-population-trino.py"
+
+TRINO_HOST=localhost TRINO_PORT=8090 \
+  $PYTHON "${REPO_DIR}/scripts/load-fortnightly-trino.py" \
+  --data-dir "${REPO_DIR}/agents/nndss-mcp-server/data/fortnightly"
 
 kill $PF_PID 2>/dev/null || true
 
@@ -121,6 +139,9 @@ oc apply -f "${REPO_DIR}/deploy/pipeline-mlflow-rbac.yaml" -n "${NAMESPACE}"
 
 # ── 10. Deploy SpiceDB ────────────────────────────────────────
 echo "==> 10. Deploying SpiceDB (Postgres + SpiceDB operator CR)"
+# Operator scope: cluster (default, normal clusters) or namespaced for
+# widely-shared clusters — SPICEDB_OPERATOR_SCOPE=namespaced ./scripts/deploy-all.sh
+"${REPO_DIR}/scripts/install-spicedb-operator.sh" "${NAMESPACE}" "${SPICEDB_OPERATOR_SCOPE:-cluster}"
 oc apply -k "${REPO_DIR}/deploy/spicedb" -n "${NAMESPACE}"
 echo "Waiting for SpiceDB Postgres..."
 oc rollout status deployment/spicedb-postgres -n "${NAMESPACE}" --timeout=120s
@@ -138,11 +159,15 @@ kill $PF_PID 2>/dev/null || true
 # ── 11. Deploy agent ──────────────────────────────────────────
 echo "==> 11. Deploying agent"
 oc apply -k "${REPO_DIR}/agents/nndss-agent/deploy" -n "${NAMESPACE}"
+# RHOAI MLflow workspaces map 1:1 to namespaces — keep env in sync with NAMESPACE
+oc set env deployment/nndss-agent "MLFLOW_WORKSPACE=${NAMESPACE}" -n "${NAMESPACE}"
 oc rollout status deployment/nndss-agent -n "${NAMESPACE}" --timeout=120s
 
 # ── 12. Deploy pipeline server (DSPA) ─────────────────────────
 echo "==> 12. Deploying pipeline server"
-oc apply -f "${REPO_DIR}/deploy/dspa.yaml" -n "${NAMESPACE}"
+# dspa.yaml hardcodes the minio host — retarget it to the actual MinIO namespace
+sed "s/minio\.minio\.svc\.cluster\.local/minio.${MINIO_NAMESPACE}.svc.cluster.local/" \
+  "${REPO_DIR}/deploy/dspa.yaml" | oc apply -n "${NAMESPACE}" -f -
 echo "Waiting for DSPA..."
 sleep 30
 oc rollout status deployment/ds-pipeline-dspa -n "${NAMESPACE}" --timeout=120s

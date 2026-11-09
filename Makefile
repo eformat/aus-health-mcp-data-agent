@@ -24,10 +24,11 @@ push: ## Push agent image to registry
 	podman push $(REGISTRY)/$(AGENT_IMAGE):$(TAG)
 
 # ── Model ───────────────────────────────────────────────────
-MAAS_BASE_URL ?= http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas
-AGENT_MODEL   ?= qwen36-27b
+# MaaS body-based routing: shared /v1 endpoint, model = FULL publisher path
+MAAS_BASE_URL ?= https://maas.apps.ocp.cloud.rhai-tmm.dev/v1
+AGENT_MODEL   ?= publishers/prelude-maas/models/glm-53-flash
 
-set-model: ## Switch agent model: make set-model AGENT_MODEL=kimi-k2-6
+set-model: ## Switch agent model: make set-model AGENT_MODEL=publishers/prelude-maas/models/glm-53-flash
 	@./scripts/set-model.sh $(AGENT_MODEL)
 
 PROMPT_MSG ?= Prompt update

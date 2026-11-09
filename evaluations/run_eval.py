@@ -15,9 +15,9 @@ Environment variables:
     MLFLOW_TRACKING_URI     MLflow server URL
     MLFLOW_WORKSPACE        MLflow workspace (for RHOAI)
     OPENAI_API_KEY          MaaS API key
-    MODEL_NAME              Agent model (default: qwen36-27b)
-    MODEL_ENDPOINT          Agent model endpoint
-    JUDGE_MODEL             Judge model (default: gemma4)
+    MODEL_NAME              Agent model (default: publishers/prelude-maas/models/glm-53-flash)
+    MODEL_ENDPOINT          Agent model endpoint (shared MaaS /v1 root)
+    JUDGE_MODEL             Judge model (default: publishers/prelude-maas/models/gemma4)
     TRINO_QUERY_HOST        Trino host (default: localhost)
     TRINO_QUERY_PORT        Trino port (default: 8090)
 """
@@ -92,10 +92,10 @@ def main():
         scorers = get_all_scorers()  # Deterministic only
         print(f"Mode: simple | Scorers: {len(scorers)} (deterministic)")
     else:
-        judge_model = os.environ.get("JUDGE_MODEL", "gemma4")
+        judge_model = os.environ.get("JUDGE_MODEL", "publishers/prelude-maas/models/gemma4")
         judge_endpoint = os.environ.get(
             "JUDGE_ENDPOINT",
-            "http://maas.apps.ocp.cloud.rhai-tmm.dev/prelude-maas/gemma4/v1",
+            "https://maas.apps.ocp.cloud.rhai-tmm.dev/v1",
         )
         os.environ["OPENAI_API_BASE"] = judge_endpoint
         os.environ["OPENAI_BASE_URL"] = judge_endpoint
